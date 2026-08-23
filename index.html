@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Corner Shelf</title>
+    <meta name="description" content="Walk the shelves of an AI bookshop and learn to judge AI output for yourself, one book at a time." />
+
+    <!-- Open Graph / Twitter card: what a shared invite link shows as a preview
+         card on Facebook, LinkedIn, WhatsApp, iMessage, etc. Those platforms'
+         public share-URL widgets don't accept custom prefilled text (that's a
+         platform restriction, not something fixable from a share link's query
+         params), they pull whatever's here instead, see InviteFriendPage.jsx. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="The Corner Shelf" />
+    <meta property="og:description" content="Walk the shelves of an AI bookshop and learn to judge AI output for yourself, one book at a time." />
+    <meta property="og:image" content="/landing-bg.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="The Corner Shelf" />
+    <meta name="twitter:description" content="Walk the shelves of an AI bookshop and learn to judge AI output for yourself, one book at a time." />
+    <meta name="twitter:image" content="/landing-bg.jpg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
+    <script>
+      (function () {
+        var hour = new Date().getHours();
+        var band = 'night';
+        if (hour >= 5 && hour < 11) band = 'morning';
+        else if (hour >= 11 && hour < 17) band = 'day';
+        else if (hour >= 17 && hour < 20) band = 'evening';
+        document.documentElement.setAttribute('data-theme', band);
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
