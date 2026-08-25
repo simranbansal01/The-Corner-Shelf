@@ -197,14 +197,15 @@ export default function CornerShelfScene({
           </div>
           <p className="placement-question-text">{onboarding.questionText}</p>
           <div className="placement-options">
-            {onboarding.options.map((opt) => (
+            {onboarding.options.map((opt, i) => (
               <button
                 key={opt.id}
                 type="button"
                 className="placement-option-btn"
                 onClick={() => onOnboardingPick(opt.id)}
               >
-                {opt.label}
+                <span className="placement-option-marker">{String.fromCharCode(65 + i)}</span>
+                <span className="placement-option-label">{opt.label}</span>
               </button>
             ))}
           </div>
