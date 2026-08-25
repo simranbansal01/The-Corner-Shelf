@@ -97,9 +97,9 @@ export default function Bookshelf() {
   const [unlockMessage, setUnlockMessage] = useState(null)
 
   // The shopkeeper's post-onboarding "ask for directions" dialogue: null
-  // when closed, otherwise 'menu' | 'nextLesson' | 'tour' | 'settingsInfo' |
-  // 'nookInfo'. nextDirection holds the getNextDirection() result computed
-  // when 'nextLesson' is picked; tourStepIndex tracks position within
+  // when closed, otherwise 'menu' | 'nextLesson' | 'tour'. nextDirection
+  // holds the getNextDirection() result computed when 'nextLesson' is
+  // picked; tourStepIndex tracks position within
   // TOUR_STEPS while directionsStep === 'tour'. The 3D beacon's target
   // (pointTarget below) is derived from these rather than tracked
   // separately.
@@ -219,14 +219,6 @@ export default function Bookshelf() {
       setTourStepIndex((i) => i + 1)
     } else if (value === 'tourBack') {
       setTourStepIndex((i) => Math.max(0, i - 1))
-    } else if (value === 'settings') {
-      logEvent('directions_settings_info_requested')
-      setDirectionsStep('settingsInfo')
-      setNextDirection(null)
-    } else if (value === 'nook') {
-      logEvent('directions_nook_info_requested')
-      setDirectionsStep('nookInfo')
-      setNextDirection(null)
     }
   }
 
@@ -355,9 +347,17 @@ export default function Bookshelf() {
     }
   }
 
+  // "Start exploring" ends onboarding and immediately walks a brand-new
+  // user through the same "Show me around" tour reachable later from the
+  // shopkeeper's directions menu — first-timers shouldn't have to know to
+  // go ask for it.
   function handleOnboardingConfirm() {
     logEvent('onboarding_flow_completed')
     setPhase('done')
+    logEvent('directions_tour_requested', { source: 'onboarding_auto' })
+    setDirectionsStep('tour')
+    setNextDirection(null)
+    setTourStepIndex(0)
   }
 
   const onboarding = useMemo(() => {
@@ -414,22 +414,26 @@ export default function Bookshelf() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, goal, placementIndex, revealTier, profile?.path_message])
 
-  // Step-by-step "Show me around" walk: each step's beacon (see pointTarget
-  // below) lights up the actual area being described instead of dumping
-  // everything into one paragraph of text. Module 3's wording depends on
-  // whether it's unlocked yet, same distinction the shopkeeper's onboarding
-  // reveal already makes elsewhere.
+  // Step-by-step "Show me around" walk, written for someone who's never
+  // played a walking-around game before: first *how to move at all* and
+  // *how to pick up a book*, then where things are. Each located step's
+  // on-screen arrow (see pointTarget below) points the way instead of
+  // dumping everything into one paragraph of text. Module 3's wording
+  // depends on whether it's unlocked yet, same distinction the shopkeeper's
+  // onboarding reveal already makes elsewhere.
   const tier3Unlocked = isTierUnlocked(3, attemptedIds)
   const TOUR_STEPS = [
-    { dialogue: 'Module 1 lives right behind me, on the back wall — always open.', point: { kind: 'wall', id: 'back' } },
-    { dialogue: 'Module 2 is on the wall to your left.', point: { kind: 'wall', id: 'left' } },
+    { dialogue: "First things first: press W, A, S, or D on your keyboard to walk. You can also just click anywhere on the floor and you'll walk right there.", point: null },
+    { dialogue: "See a book glowing on a shelf? Walk up to it and click it — it'll pop right out and open up for you to read.", point: null },
+    { dialogue: 'Module 1 lives right behind me, on the back wall — always open. Follow the arrow!', point: { kind: 'wall', id: 'back' } },
+    { dialogue: 'Module 2 is on the wall to your left. Follow the arrow!', point: { kind: 'wall', id: 'left' } },
     {
       dialogue: tier3Unlocked
-        ? 'Module 3 is on the wall to your right.'
-        : 'Module 3 is on the wall to your right, once you unlock it.',
+        ? 'Module 3 is on the wall to your right. Follow the arrow!'
+        : 'Module 3 is on the wall to your right, once you unlock it. Follow the arrow!',
       point: { kind: 'wall', id: 'right' },
     },
-    { dialogue: 'That cozy corner behind you is just for reading — no pressure, come sit whenever you like.', point: { kind: 'nook' } },
+    { dialogue: 'That cozy corner behind you is just for reading — no pressure, come sit whenever you like. Follow the arrow!', point: { kind: 'nook' } },
     { dialogue: 'And up top, the Menu button has your Dashboard and Settings — that’s where you pick your buddy, resize them, and switch themes.', point: null },
   ]
 
@@ -441,9 +445,6 @@ export default function Bookshelf() {
         options: [
           { id: 'next', label: "Where's my next lesson?" },
           { id: 'tour', label: 'Show me around' },
-          { id: 'settings', label: "What's in Settings?" },
-          { id: 'nook', label: "What's the reading nook for?" },
-          { id: 'close', label: 'Nothing, thanks' },
         ],
       }
     }
@@ -480,43 +481,21 @@ export default function Bookshelf() {
         ],
       }
     }
-    if (directionsStep === 'settingsInfo') {
-      return {
-        active: true,
-        dialogue: "Settings is up in the top-right Menu — theme, your buddy's size, and which buddy follows you around. Pick between Niblet, Sir Claws-a-Lot, or Glitchy, whoever suits you.",
-        options: [
-          { id: 'menu', label: 'Back' },
-          { id: 'close', label: 'Nothing else, thanks' },
-        ],
-      }
-    }
-    if (directionsStep === 'nookInfo') {
-      return {
-        active: true,
-        dialogue: "That's just a spot to sit and read at your own pace — no tasks, no timer. Come back to your books whenever you're ready.",
-        options: [
-          { id: 'menu', label: 'Back' },
-          { id: 'close', label: 'Nothing else, thanks' },
-        ],
-      }
-    }
     return null
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [directionsStep, nextDirection, tourStepIndex, tier3Unlocked])
 
-  // The 3D beacon's target, derived from whichever directions step is
-  // active — kept as one memo (rather than plumbed through as separate
-  // state) so CornerShelfScene's effect only refires when the logical
-  // target actually changes, not on every unrelated re-render.
+  // The scene's pointer target (glowing beacon for a specific stage, or
+  // on-screen arrow for a wall/nook), derived from whichever directions
+  // step is active — kept as one memo (rather than plumbed through as
+  // separate state) so CornerShelfScene's effect only refires when the
+  // logical target actually changes, not on every unrelated re-render.
   const pointTarget = useMemo(() => {
     if (directionsStep === 'nextLesson' && nextDirection?.type === 'stage') {
       return { kind: 'stage', id: nextDirection.stageId }
     }
     if (directionsStep === 'tour') {
       return TOUR_STEPS[tourStepIndex]?.point ?? null
-    }
-    if (directionsStep === 'nookInfo') {
-      return { kind: 'nook' }
     }
     return null
     // eslint-disable-next-line react-hooks/exhaustive-deps

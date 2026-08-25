@@ -93,6 +93,18 @@ let beaconBaseY = 0;
 let beaconTimeLeft = 0;
 const BEACON_DURATION = 14;
 
+// Compass-style tour arrow (see pointToWall/pointToNook below): a plain DOM
+// element (#tour-arrow, rendered by CornerShelfScene.jsx) rotated every
+// frame to point toward its target, rather than a glowing 3D sprite —
+// works regardless of which way the player is currently facing/walking,
+// and reads as a simple "this way" hint rather than a magical light.
+let tourArrowEl = null;
+let tourArrowShapeEl = null;
+let arrowActive = false;
+const arrowTargetWorld = new THREE.Vector3();
+const arrowCamPos = new THREE.Vector3();
+const arrowCamDir = new THREE.Vector3();
+
 function toonMat(color, extra) {
   return new THREE.MeshToonMaterial(Object.assign({ color, gradientMap: TOON_GRADIENT }, extra || {}));
 }
@@ -851,6 +863,7 @@ function pointToStage(stageId) {
   const len = Math.hypot(dx, dz) || 1;
   const x = bookWorldPos.x + (dx / len) * 0.5;
   const z = bookWorldPos.z + (dz / len) * 0.5;
+  clearArrow();
   showBeacon(x, BEACON_HEIGHT, z);
 }
 
@@ -872,14 +885,14 @@ function pointToWall(wall) {
   const len = Math.hypot(dx, dz) || 1;
   const x = wx + (dx / len) * 0.6;
   const z = wz + (dz / len) * 0.6;
-  showBeacon(x, BEACON_HEIGHT, z);
+  showArrow(x, BEACON_HEIGHT, z);
 }
 
 // Roughly the cozy nook's rug/beanbag cluster center (see buildCozyNook),
 // not tied to any single prop since the tour is pointing at the area as a
 // whole, not one specific beanbag.
 function pointToNook() {
-  showBeacon(0.5, BEACON_HEIGHT, 0.9);
+  showArrow(0.5, BEACON_HEIGHT, 0.9);
 }
 
 function showBeacon(x, y, z) {
@@ -890,12 +903,50 @@ function showBeacon(x, y, z) {
   beaconTimeLeft = BEACON_DURATION;
 }
 
-function clearPointer() {
+// Arrow target is tracked in world space rather than screen space so it
+// stays correct as the player walks/looks around; updateTourArrow (in the
+// render loop) recomputes the on-screen rotation every frame from the
+// player's current camera position/heading.
+function showArrow(x, y, z) {
+  clearBeacon();
+  arrowTargetWorld.set(x, y, z);
+  arrowActive = true;
+  if (tourArrowEl) tourArrowEl.classList.add('visible');
+}
+
+function clearBeacon() {
   beaconTimeLeft = 0;
   if (beaconSprite) {
     beaconSprite.visible = false;
     beaconSprite.material.opacity = 0;
   }
+}
+
+function clearArrow() {
+  arrowActive = false;
+  if (tourArrowEl) tourArrowEl.classList.remove('visible');
+}
+
+function clearPointer() {
+  clearBeacon();
+  clearArrow();
+}
+
+// Rotates #tour-arrow to always point toward arrowTargetWorld, purely by
+// heading (yaw) rather than screen-space projection — a simple compass
+// needle that stays meaningful even when the target is behind the player
+// or off-screen, unlike a beacon that only makes sense in view.
+function updateTourArrow() {
+  if (!arrowActive || !tourArrowShapeEl) return;
+  camera.getWorldPosition(arrowCamPos);
+  camera.getWorldDirection(arrowCamDir);
+  const dx = arrowTargetWorld.x - arrowCamPos.x;
+  const dz = arrowTargetWorld.z - arrowCamPos.z;
+  const targetBearing = Math.atan2(dx, dz);
+  const forwardBearing = Math.atan2(arrowCamDir.x, arrowCamDir.z);
+  let deg = THREE.MathUtils.radToDeg(forwardBearing - targetBearing);
+  deg = ((deg + 180) % 360 + 360) % 360 - 180;
+  tourArrowShapeEl.style.transform = `rotate(${deg}deg)`;
 }
 
 function updateDirectionsBeacon(dt) {
@@ -2354,6 +2405,8 @@ function setupControls() {
   const startOverlay = document.getElementById('start-overlay');
   const pauseOverlay = document.getElementById('pause-overlay');
   const hud = document.getElementById('hud');
+  tourArrowEl = document.getElementById('tour-arrow');
+  tourArrowShapeEl = tourArrowEl?.querySelector('.tour-arrow-shape') || null;
   const canvas = renderer.domElement;
   const signal = controller.signal;
   let dragging = false;
@@ -2703,6 +2756,7 @@ function animate() {
   if (locked) updateMovement(dt);
   updateLessonBooks(dt);
   updateDirectionsBeacon(dt);
+  updateTourArrow();
   catAnimRefs.forEach(c => {
     const breathe = 1 + Math.sin(t * 1.6 + c.basePhase) * 0.05;
     c.body.scale.y = c.baseScaleY * breathe;

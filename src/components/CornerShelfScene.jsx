@@ -141,6 +141,15 @@ export default function CornerShelfScene({
 
       <div id="book-hint" className="book-hint">✨ Click a glowing book to pick it up</div>
 
+      {/* Compass-style "this way!" arrow for the tour's wall/nook steps
+          (see pointToWall/pointToNook in cornerShelfScene.js) — always
+          anchored on screen, rotated every frame to point toward the
+          target regardless of which way the player is currently facing.
+          Hidden via CSS (no 'visible' class) whenever nothing's pointed at. */}
+      <div id="tour-arrow" className="tour-arrow">
+        <div className="tour-arrow-shape" />
+      </div>
+
       {unlockMessage && <div className="unlock-toast">✨ {unlockMessage}</div>}
 
       <div id="pause-overlay" className="overlay hidden">
@@ -204,6 +213,14 @@ export default function CornerShelfScene({
 
       {!onboarding?.active && directions?.active && (
         <div className="shopkeeper-dialogue">
+          <button
+            type="button"
+            className="shopkeeper-dialogue-close"
+            aria-label="Close"
+            onClick={() => onDirectionsPick('close')}
+          >
+            ×
+          </button>
           <p className="shopkeeper-dialogue-line">{directions.dialogue}</p>
           {directions.options ? (
             <div className="shopkeeper-dialogue-options">

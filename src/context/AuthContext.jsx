@@ -49,24 +49,17 @@ export function AuthProvider({ children }) {
     }
   }
 
-  async function signInWithGoogle() {
+  // emailHint pre-fills Google's own login screen (login_hint) when the
+  // user typed their email on our landing page first — Google still does
+  // all identity verification, so this needs no SMTP/confirmation email.
+  async function signInWithGoogle(emailHint) {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin },
+      options: {
+        redirectTo: window.location.origin,
+        ...(emailHint ? { queryParams: { login_hint: emailHint } } : {}),
+      },
     })
-  }
-
-  // Email/password signup. With "Confirm email" off in Supabase's Auth
-  // settings, this returns a session immediately, same instant feel as
-  // Google — no confirmation email/OTP step in between.
-  async function signUpWithPassword(email, password) {
-    return supabase.auth.signUp({ email, password })
-  }
-
-  // Returning users who signed up with a password. Creates a session
-  // immediately on success, same as signUpWithPassword/Google.
-  async function signInWithPassword(email, password) {
-    return supabase.auth.signInWithPassword({ email, password })
   }
 
   async function signOut() {
@@ -79,8 +72,6 @@ export function AuthProvider({ children }) {
     profile,
     loading,
     signInWithGoogle,
-    signUpWithPassword,
-    signInWithPassword,
     signOut,
     refreshProfile,
   }
