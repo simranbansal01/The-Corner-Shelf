@@ -45,6 +45,7 @@ IMPORTANT: three different situations you'll be asked to respond to:
 2. GUIDING someone who hasn't submitted a judgment yet (the request will say so explicitly): they're stuck or want a nudge mid-task. In this case you have NOT been told whether the output is flawed, and you must never guess, hint at, or imply a verdict. Do not congratulate, evaluate, or say anything implying an answer was given, none was.
    The user's ONLY evidence is the scenario and AI-output text already shown to them on screen, this is a fixed, self-contained exercise, not a live system. They cannot check any error log, database, source document, or other external system, even if the scenario mentions one existing in the story. NEVER ask them to "check," "verify," or "look at" anything outside the text already in front of them (e.g. do NOT say "what would you check in the logs", there is no log they can open).
    Instead, point them back at a specific word, number, or claim that literally appears in the scenario or AI-output text above, and prompt them to reread that exact part closely, something they can act on immediately just by looking again at their own screen, with no reply needed anywhere.
+   Exception: if what's in front of them is a multiple-choice quiz question from a Learn-module chapter rather than a task scenario, that "point at a word to reread" move does not apply, naming, quoting, or pointing at any one option, even by position, reveals your pick, since there are only a few discrete options, and don't reason aloud about which one seems right either. This is NOT the "no external system" case above, the chapter's Quick Notes page is a real page in the same book they're already reading, one page back. Tell them plainly to go reread it, that's where the concept being tested was covered.
 3. EXPLAINING a question about Learn-module content (the request will include the module's notes and the user's typed question): they finished the video, notes, and quiz for a stage and are stuck on something. This is a genuine teaching moment, the opposite of GUIDING: answer their question directly and clearly, using the supplied notes as your reference material, following the PLAIN LANGUAGE rules above especially closely here since this is where confusion is most likely. Include one concrete, everyday example or analogy in your answer, not just a definition. Don't withhold anything. If their question is about something the notes don't cover, say so plainly rather than guessing.`
 
 const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY')
@@ -101,7 +102,7 @@ serve(async (req) => {
   }
 })
 
-function buildUserPrompt({ mode, screen, scenario, aiOutput, confidence, isCorrect, userJudgmentText, currentAnswerSummary, goal, notes, videoTitle, question, askedQuestion }) {
+function buildUserPrompt({ mode, screen, scenario, aiOutput, confidence, isCorrect, userJudgmentText, currentAnswerSummary, goal, notes, videoTitle, question, askedQuestion, isQuiz }) {
   const parts = [`Screen: ${screen}`]
   if (goal) parts.push(`User's stated goal for being here: ${goal}`)
 
@@ -118,6 +119,9 @@ function buildUserPrompt({ mode, screen, scenario, aiOutput, confidence, isCorre
 
   if (mode === 'guide') {
     parts.push('The user has NOT submitted an answer yet. They opened you mid-task, before answering, wanting help thinking it through. You do not know the correct answer, and must never guess or imply one.')
+    if (isQuiz) {
+      parts.push('This is a multiple-choice quiz question, not a scenario or passage. The usual GUIDING move of pointing at a specific word or claim to reread does NOT apply the same way here: naming, quoting, paraphrasing, or pointing at any one option (even by position, like "the second one") reveals your pick, since there are only a few discrete options to begin with, and do not reason aloud about which one seems right either. Instead, tell them plainly to go back and reread this chapter\'s Quick Notes page (a real page in the same book, one page back, not an external system), since that\'s where the concept this question is testing was covered.')
+    }
     // These reflect what the user has typed/selected SO FAR, in progress and
     // not yet submitted, not a final verdict, use them to make the nudge
     // specific to their actual in-progress thinking instead of generic.
@@ -127,7 +131,11 @@ function buildUserPrompt({ mode, screen, scenario, aiOutput, confidence, isCorre
     if (userJudgmentText) parts.push(`What they've typed so far, in their own words: "${userJudgmentText}"`)
     if (askedQuestion) {
       parts.push(`They also directly asked you: "${askedQuestion}"`)
-      parts.push('Answer what they asked as directly as you can while staying inside your GUIDING rules: still no verdict, still never confirm or deny whether any option/answer is correct. If their question effectively asks for the verdict, redirect them to a specific word, number, or claim in the scenario/output to reread instead of answering it.')
+      parts.push(
+        isQuiz
+          ? 'Answer what they asked as directly as you can while staying inside your GUIDING rules: still no verdict, still never name, quote, or point at any option. If their question effectively asks for the verdict, tell them plainly to reread this chapter\'s Quick Notes page instead of answering it.'
+          : 'Answer what they asked as directly as you can while staying inside your GUIDING rules: still no verdict, still never confirm or deny whether any option/answer is correct. If their question effectively asks for the verdict, redirect them to a specific word, number, or claim in the scenario/output to reread instead of answering it.',
+      )
     }
     parts.push('Write a 1-2 sentence guiding nudge as Buddy, per your GUIDING instructions, responding to where they specifically are above if given, not a generic nudge. No verdict, no evaluation, just a neutral question pointing at what to check.')
   } else {
