@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import { PetBuddyProvider } from './context/PetBuddyContext'
 import { supabase } from './lib/supabase'
 import ProtectedRoute from './components/ProtectedRoute'
 import AdminRoute from './components/AdminRoute'
@@ -79,9 +80,11 @@ function AppRoutes() {
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <AppRoutes />
-      </BrowserRouter>
+      <PetBuddyProvider>
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </PetBuddyProvider>
     </AuthProvider>
   )
 }

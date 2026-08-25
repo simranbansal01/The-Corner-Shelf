@@ -56,24 +56,15 @@ export function AuthProvider({ children }) {
     })
   }
 
-  // Email/password signup: Supabase creates the (unconfirmed) account and
-  // emails a confirmation code. The session doesn't exist yet, the caller
-  // moves on to the OTP step and calls verifySignupOtp to finish.
+  // Email/password signup. With "Confirm email" off in Supabase's Auth
+  // settings, this returns a session immediately, same instant feel as
+  // Google — no confirmation email/OTP step in between.
   async function signUpWithPassword(email, password) {
     return supabase.auth.signUp({ email, password })
   }
 
-  // Confirms the code from that email, which is what actually creates the
-  // session, onAuthStateChange picks it up from here same as any sign-in.
-  async function verifySignupOtp(email, token) {
-    return supabase.auth.verifyOtp({ email, token, type: 'signup' })
-  }
-
-  async function resendSignupOtp(email) {
-    return supabase.auth.resend({ type: 'signup', email })
-  }
-
-  // Returning users who signed up with a password (already confirmed).
+  // Returning users who signed up with a password. Creates a session
+  // immediately on success, same as signUpWithPassword/Google.
   async function signInWithPassword(email, password) {
     return supabase.auth.signInWithPassword({ email, password })
   }
@@ -89,8 +80,6 @@ export function AuthProvider({ children }) {
     loading,
     signInWithGoogle,
     signUpWithPassword,
-    verifySignupOtp,
-    resendSignupOtp,
     signInWithPassword,
     signOut,
     refreshProfile,

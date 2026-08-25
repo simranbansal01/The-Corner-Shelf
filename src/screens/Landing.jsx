@@ -5,24 +5,25 @@ import ThemeToggle from '../components/ThemeToggle'
 import { logEvent, logError } from '../lib/events'
 
 // Landing page's own tiny auth flow: pick a path (Google / email sign up /
-// email sign in) from 'home', then a form, then (signup only) an OTP step
-// once Supabase emails a confirmation code. A session existing at all is
-// what moves someone on, RootGate handles the redirect once it does.
+// email sign in) from 'home', then a form. Both the email/password paths
+// and Google create a session immediately on success — no OTP/email-
+// confirmation step for any of them (relies on "Confirm email" being off
+// in Supabase's Auth settings, otherwise signUpWithPassword won't return a
+// session right away). A session existing at all is what moves someone on,
+// RootGate handles the redirect once it does.
 export default function Landing() {
-  const { signInWithGoogle, signUpWithPassword, verifySignupOtp, resendSignupOtp, signInWithPassword } = useAuth()
+  const { signInWithGoogle, signUpWithPassword, signInWithPassword } = useAuth()
 
-  const [mode, setMode] = useState('home') // 'home' | 'signup' | 'signup-otp' | 'signin'
+  const [mode, setMode] = useState('home') // 'home' | 'signup' | 'signin'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [otp, setOtp] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
-  const [notice, setNotice] = useState(null)
 
   // Stashed for App.jsx's RootGate to resolve into `referred_by` on this
   // visitor's first-ever login (see add_referrals.sql). localStorage (not
   // just the URL) survives the Google OAuth redirect away from and back to
-  // this origin; the email/OTP path never leaves the page at all.
+  // this origin; the email path never leaves the page at all.
   useEffect(() => {
     const ref = new URLSearchParams(window.location.search).get('ref')
     if (ref) localStorage.setItem('pendingReferralCode', ref)
@@ -31,7 +32,6 @@ export default function Landing() {
   function reset(nextMode) {
     setMode(nextMode)
     setError(null)
-    setNotice(null)
   }
 
   function handleGoogle() {
@@ -50,42 +50,9 @@ export default function Landing() {
       const { error: signUpError } = await signUpWithPassword(email.trim(), password)
       if (signUpError) throw signUpError
       logEvent('signup_submitted', { screen: 'landing' })
-      setMode('signup-otp')
-      setNotice(`We sent a code to ${email.trim()}.`)
-    } catch (err) {
-      logError('signup_failed', err.message, 'handleSignUp')
-      setError(err.message)
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  async function handleVerifyOtp() {
-    if (otp.trim().length === 0) return
-    setSubmitting(true)
-    setError(null)
-    try {
-      const { error: verifyError } = await verifySignupOtp(email.trim(), otp.trim())
-      if (verifyError) throw verifyError
-      logEvent('signup_otp_verified', { screen: 'landing' })
       // Session now exists, RootGate takes it from here.
     } catch (err) {
-      logError('signup_otp_failed', err.message, 'handleVerifyOtp')
-      setError(err.message)
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  async function handleResendOtp() {
-    setSubmitting(true)
-    setError(null)
-    try {
-      const { error: resendError } = await resendSignupOtp(email.trim())
-      if (resendError) throw resendError
-      setNotice(`Sent a new code to ${email.trim()}.`)
-    } catch (err) {
-      logError('signup_otp_resend_failed', err.message, 'handleResendOtp')
+      logError('signup_failed', err.message, 'handleSignUp')
       setError(err.message)
     } finally {
       setSubmitting(false)
@@ -153,32 +120,9 @@ export default function Landing() {
           {error && <p className="landing-error">{error}</p>}
           <div className="judgment-row">
             <Button disabled={submitting} onClick={handleSignUp}>
-              {submitting ? 'Sending code…' : 'Sign up'}
+              {submitting ? 'Signing up…' : 'Sign up'}
             </Button>
             <Button variant="secondary" onClick={() => reset('home')}>Back</Button>
-          </div>
-        </div>
-      )}
-
-      {mode === 'signup-otp' && (
-        <div className="landing-auth-card">
-          <h2>Check your email</h2>
-          {notice && <p className="landing-notice">{notice}</p>}
-          <label className="field-label landing-field-label">6-digit code</label>
-          <input
-            type="text"
-            inputMode="numeric"
-            className="text-input"
-            value={otp}
-            onChange={(e) => setOtp(e.target.value)}
-            autoFocus
-          />
-          {error && <p className="landing-error">{error}</p>}
-          <div className="judgment-row">
-            <Button disabled={submitting || !otp.trim()} onClick={handleVerifyOtp}>
-              {submitting ? 'Verifying…' : 'Verify'}
-            </Button>
-            <Button variant="secondary" disabled={submitting} onClick={handleResendOtp}>Resend code</Button>
           </div>
         </div>
       )}

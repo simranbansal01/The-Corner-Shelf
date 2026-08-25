@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { logEvent } from '../../lib/events'
+import { usePetBuddy } from '../../context/PetBuddyContext'
 import Button from '../Button'
 
 // The table-of-contents page a Tier 1 book opens on: one entry per chapter
@@ -100,6 +101,7 @@ export function ChapterNotesPage({ chapter }) {
 // per question instead of needing to reset state in an effect.
 export function ChapterQuizPage({ question, onAnswered }) {
   const [selected, setSelected] = useState(null)
+  const { triggerSuccess, triggerError } = usePetBuddy()
 
   function pick(optionId) {
     if (selected !== null) return
@@ -107,6 +109,11 @@ export function ChapterQuizPage({ question, onAnswered }) {
     const isCorrect = optionId === question.correct
     logEvent('chapter_quiz_answered', { question_id: question.id, selected_option: optionId, is_correct: isCorrect })
     onAnswered(question.id, isCorrect)
+    if (isCorrect) {
+      triggerSuccess('Awesome job! You nailed that concept!')
+    } else {
+      triggerError("Uh oh, not quite! Check the hint and try again.")
+    }
   }
 
   const answered = selected !== null
@@ -151,10 +158,23 @@ export function ChapterQuizPage({ question, onAnswered }) {
 // jumps back to its first quiz question, matching the artifact's own
 // scorecard page.
 export function ChapterScorePage({ chapter, quizAnswers, onRetake }) {
+  const { triggerSuccess } = usePetBuddy()
+  const celebratedFor = useRef(null)
   const questionIds = chapter.quiz.map((q) => q.id)
   const allAnswered = questionIds.every((id) => quizAnswers[id] !== undefined)
   const correctCount = questionIds.filter((id) => quizAnswers[id]).length
   const total = questionIds.length
+
+  // Fires once per chapter the first time its score page is reached fully
+  // answered — guarded by chapter.id so revisiting an already-completed
+  // chapter (or re-rendering mid-session) doesn't replay the celebration.
+  useEffect(() => {
+    if (allAnswered && celebratedFor.current !== chapter.id) {
+      celebratedFor.current = chapter.id
+      triggerSuccess('Chapter complete! Great work getting through that.')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allAnswered, chapter.id])
 
   const caption = !allAnswered
     ? 'Answer all the questions in this chapter to see your score.'

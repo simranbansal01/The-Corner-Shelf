@@ -7,7 +7,7 @@ import ThemeToggle from './ThemeToggle'
 // the scene's own toggle buttons (semi-transparent pill, no full-width
 // bar) instead of a solid bar pushing the canvas down. Everywhere else
 // keeps the plain opaque nav.
-export default function Layout({ children, buddyContext, buddyPetOverride, floatingNav = false }) {
+export default function Layout({ children, buddyContext, floatingNav = false }) {
   const { signOut } = useAuth()
   const navigate = useNavigate()
 
@@ -32,7 +32,7 @@ export default function Layout({ children, buddyContext, buddyPetOverride, float
         )}
       </nav>
       <main className="app-main">{children}</main>
-      <BuddyPanel context={buddyContext ?? { screen: 'unknown' }} petOverride={buddyPetOverride} />
+      <BuddyPanel context={buddyContext ?? { screen: 'unknown' }} />
     </div>
   )
 }

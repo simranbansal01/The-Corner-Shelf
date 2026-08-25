@@ -100,3 +100,37 @@ export function isTierUnlocked(tierOrder, attemptedIds) {
   if (!prevTier) return false
   return computeTierProgress(prevTier.id, attemptedIds).complete
 }
+
+// Same wall assignment as Bookshelf.jsx's WALL_BY_TIER_ORDER, duplicated
+// here (rather than imported) since roadmap.js is the shared/lower layer
+// and Bookshelf.jsx already depends on it, not the other way around.
+const WALL_BY_TIER_ORDER = { 1: 'back', 2: 'left', 3: 'right' }
+
+// What the shopkeeper should point the player toward next, for the
+// "ask for directions" feature. Tier 1 is special-cased: every shelf book
+// on the back wall opens the same 'foundations' stage (see Bookshelf.jsx's
+// MODULE_1_BOOK_STAGE_ID), so that's the only tier-1 stage actually
+// reachable from the shop, even though tier 1 has 5 roadmap stages.
+export function getNextDirection(attemptedIds) {
+  const tier1 = TIERS.find((t) => t.order === 1)
+  const foundationsDone = computeStageProgress('foundations', attemptedIds).complete
+  if (!foundationsDone) {
+    return { type: 'stage', stageId: 'foundations', wall: WALL_BY_TIER_ORDER[1], title: 'Foundations' }
+  }
+  if (!computeTierProgress(tier1.id, attemptedIds).complete) {
+    return { type: 'tier1_gap' }
+  }
+
+  for (const tier of TIERS) {
+    if (tier.order === 1) continue
+    if (!isTierUnlocked(tier.order, attemptedIds)) {
+      return { type: 'locked', tierOrder: tier.order }
+    }
+    const nextStage = tier.stages.find((s) => !computeStageProgress(s.id, attemptedIds).complete)
+    if (nextStage) {
+      return { type: 'stage', stageId: nextStage.id, wall: WALL_BY_TIER_ORDER[tier.order], title: nextStage.title }
+    }
+  }
+
+  return { type: 'complete' }
+}

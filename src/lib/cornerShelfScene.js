@@ -23,9 +23,11 @@ let explorationUnlocked = !(onboarding && onboarding.active);
 let sceneActive = true; // false while a book reader or shop panel overlay is open
 let onboardingGroup = null;
 let onboardingClickables = [];
-// Always-present clickable shop fixtures (ledger/noticeboard/companion
-// corner/the shopkeeper himself), unlike onboardingClickables these are
-// never cleared, they open a ShopPanel via onOpenPanel(panelType).
+// Always-present clickable shop fixtures (companion corner/the shopkeeper
+// himself), unlike onboardingClickables these are never cleared. Most open
+// a ShopPanel via onOpenPanel(panelType); the shopkeeper's panelType
+// ('directions') instead opens the ask-for-directions dialogue (see
+// Bookshelf.jsx's openPanel).
 let shopProps = [];
 
 const PALETTE = {
@@ -83,6 +85,13 @@ let poppedBookMesh = null;
 let anyBookNearby = false;
 let catAnimRefs = [];
 let bookWorldPos = new THREE.Vector3();
+// Single reusable "ask for directions" beacon (see pointToStage/clearPointer
+// below), repositioned per-target rather than rebuilt each time.
+let beaconSprite = null;
+let beaconBaseScale = 1.1;
+let beaconBaseY = 0;
+let beaconTimeLeft = 0;
+const BEACON_DURATION = 14;
 
 function toonMat(color, extra) {
   return new THREE.MeshToonMaterial(Object.assign({ color, gradientMap: TOON_GRADIENT }, extra || {}));
@@ -106,6 +115,24 @@ function makeGlowTexture() {
   grad.addColorStop(0, 'rgba(255,232,180,0.95)');
   grad.addColorStop(0.35, 'rgba(255,205,130,0.4)');
   grad.addColorStop(1, 'rgba(255,205,130,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 128, 128);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+// Distinct from makeGlowTexture's warm yellow (used for the "you're near a
+// book" glow) so the shopkeeper's directions beacon reads as its own thing
+// rather than looking like a book you're already standing next to.
+function makeBeaconTexture() {
+  const c = document.createElement('canvas');
+  c.width = 128; c.height = 128;
+  const ctx = c.getContext('2d');
+  const grad = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+  grad.addColorStop(0, 'rgba(255,255,255,0.95)');
+  grad.addColorStop(0.3, 'rgba(140,210,255,0.55)');
+  grad.addColorStop(1, 'rgba(90,170,255,0)');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, 128, 128);
   const tex = new THREE.CanvasTexture(c);
@@ -716,7 +743,7 @@ function findPanelType(object) {
 // so the in-scene floating signs were removed rather than left as a
 // redundant second way to open the same two panels. Built once in init(),
 // the shopkeeper himself (built in buildOwnerDesk) is tagged separately for
-// the profile panel.
+// the ask-for-directions dialogue.
 function buildShopProps() {
   const companion = buildPetFigurine({ id: 'sprout', color: 0x7fbb6c, topper: 'leaf' });
   companion.scale.setScalar(1.6);
@@ -785,6 +812,108 @@ function assignLessonBooks() {
   });
 }
 
+// Built once, hidden until the shopkeeper's directions dialogue points it at
+// a shelf (pointToStage) or a wall doesn't map to a specific book, in which
+// case it's just left hidden. Kept as one reusable sprite rather than
+// created/disposed per use, since only one target is ever shown at a time.
+function buildDirectionsBeacon() {
+  beaconSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: makeBeaconTexture(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, opacity: 0
+  }));
+  beaconSprite.scale.set(beaconBaseScale, beaconBaseScale, 1);
+  beaconSprite.visible = false;
+  scene.add(beaconSprite);
+}
+
+// Points the beacon at the world position of the first shelf book matching
+// stageId (module 1's books all share one stageId, so "first match" is fine
+// there). No-ops if the stage isn't on a shelf right now (e.g. locked tier).
+// Floats above head height rather than right above the target book: books
+// can sit on a low shelf directly behind the desk/shopkeeper, and a beacon
+// only 0.4 above one of those would be hidden behind them from the doorway.
+// Kept below ~2.0 rather than up near the 3.0 ceiling because camera pitch
+// is clamped (PITCH_MIN/PITCH_MAX above) to a fairly level, slightly-downward
+// range — anything much higher than this falls outside what the player can
+// actually tilt the camera up far enough to see.
+const BEACON_HEIGHT = 1.9;
+
+function pointToStage(stageId) {
+  const mesh = lessonBooks.find((m) => m.userData.stageId === stageId);
+  if (!mesh) return;
+  mesh.getWorldPosition(bookWorldPos);
+  // Books sit flush against their shelf wall, so the beacon's x/z (taken
+  // straight from the book) would otherwise be coplanar with (or behind)
+  // that wall's opaque backing panel and get depth-tested out. Pull it
+  // inward, toward room center, by half a meter so it floats clearly in
+  // open space in front of the wall instead.
+  const dx = -bookWorldPos.x;
+  const dz = -bookWorldPos.z;
+  const len = Math.hypot(dx, dz) || 1;
+  const x = bookWorldPos.x + (dx / len) * 0.5;
+  const z = bookWorldPos.z + (dz / len) * 0.5;
+  showBeacon(x, BEACON_HEIGHT, z);
+}
+
+// Center point of each shelf wall, for the tour's per-wall beacon steps
+// (unlike pointToStage, these don't depend on any specific book existing —
+// tier 2/3 walls should still be pointable even while locked/empty).
+const WALL_POINTS = {
+  back: [0, -ROOM.depth / 2],
+  left: [-ROOM.width / 2, 0],
+  right: [ROOM.width / 2, 0],
+};
+
+function pointToWall(wall) {
+  const p = WALL_POINTS[wall];
+  if (!p) return;
+  const [wx, wz] = p;
+  const dx = -wx;
+  const dz = -wz;
+  const len = Math.hypot(dx, dz) || 1;
+  const x = wx + (dx / len) * 0.6;
+  const z = wz + (dz / len) * 0.6;
+  showBeacon(x, BEACON_HEIGHT, z);
+}
+
+// Roughly the cozy nook's rug/beanbag cluster center (see buildCozyNook),
+// not tied to any single prop since the tour is pointing at the area as a
+// whole, not one specific beanbag.
+function pointToNook() {
+  showBeacon(0.5, BEACON_HEIGHT, 0.9);
+}
+
+function showBeacon(x, y, z) {
+  if (!beaconSprite) return;
+  beaconSprite.position.set(x, y, z);
+  beaconBaseY = y;
+  beaconSprite.visible = true;
+  beaconTimeLeft = BEACON_DURATION;
+}
+
+function clearPointer() {
+  beaconTimeLeft = 0;
+  if (beaconSprite) {
+    beaconSprite.visible = false;
+    beaconSprite.material.opacity = 0;
+  }
+}
+
+function updateDirectionsBeacon(dt) {
+  if (!beaconSprite || beaconTimeLeft <= 0) return;
+  beaconTimeLeft -= dt;
+  if (beaconTimeLeft <= 0) {
+    beaconSprite.visible = false;
+    beaconSprite.material.opacity = 0;
+    return;
+  }
+  const fadingOut = beaconTimeLeft < 1.2;
+  const targetOpacity = fadingOut ? beaconTimeLeft / 1.2 : 1;
+  beaconSprite.material.opacity += (targetOpacity - beaconSprite.material.opacity) * Math.min(1, dt * 8);
+  beaconSprite.position.y = beaconBaseY + Math.sin(clock.elapsedTime * 2.2) * 0.06;
+  const pulse = 1 + Math.sin(clock.elapsedTime * 4) * 0.14;
+  beaconSprite.scale.set(beaconBaseScale * pulse, beaconBaseScale * pulse, 1);
+}
+
 function init() {
   TOON_GRADIENT = makeToonGradient();
 
@@ -820,6 +949,7 @@ function init() {
   buildCozyNook();
   buildOwnerDesk();
   buildShopProps();
+  buildDirectionsBeacon();
   scene.add(buildChair(-2.15, 1.85, 0));
   buildPottedPlant(-ROOM.width / 2 + 0.45, ROOM.depth / 2 - 0.35, 0.9);
   buildPottedPlant(ROOM.width / 2 - 0.45, ROOM.depth / 2 - 0.35, 0.9);
@@ -1983,7 +2113,7 @@ function buildOwnerDesk() {
   const keeper = buildShopkeeper();
   keeper.position.set(seatX, 0.85, seatZ);
   keeper.rotation.y = seatFacing;
-  keeper.userData.panelType = 'profile';
+  keeper.userData.panelType = 'directions';
   scene.add(keeper);
   shopProps.push(keeper);
 }
@@ -2572,6 +2702,7 @@ function animate() {
   const t = clock.elapsedTime;
   if (locked) updateMovement(dt);
   updateLessonBooks(dt);
+  updateDirectionsBeacon(dt);
   catAnimRefs.forEach(c => {
     const breathe = 1 + Math.sin(t * 1.6 + c.basePhase) * 0.05;
     c.body.scale.y = c.baseScaleY * breathe;
@@ -2605,5 +2736,5 @@ function setSceneActive(active) {
   sceneActive = active;
 }
 
-return { dispose, setOnboarding, setSceneActive, putBookBack };
+return { dispose, setOnboarding, setSceneActive, putBookBack, pointToStage, pointToWall, pointToNook, clearPointer };
 }

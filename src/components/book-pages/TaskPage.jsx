@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { gradeTask, summarizeAnswer } from '../../lib/taskGrading'
 import { logEvent, logError } from '../../lib/events'
+import { usePetBuddy } from '../../context/PetBuddyContext'
 import Button from '../Button'
 import ConfidenceSelector from '../ConfidenceSelector'
 
@@ -29,6 +30,7 @@ function shuffledStepIds(steps) {
 // a ?stage= URL param.
 export default function TaskPage({ task, onAdvance, onContextChange }) {
   const { user } = useAuth()
+  const { triggerSuccess, triggerError } = usePetBuddy()
   const [confidence, setConfidence] = useState(null)
   const [judgmentText, setJudgmentText] = useState('')
   const [flaggedWrong, setFlaggedWrong] = useState(null) // flaw_spot: true = "wrong", false = "looks fine"
@@ -102,6 +104,11 @@ export default function TaskPage({ task, onAdvance, onContextChange }) {
       setIsCorrect(correct)
       setPhase('verdict')
       logEvent('verdict_viewed', { task_id: task.id, is_correct: correct, confidence_level: confidence })
+      if (correct) {
+        triggerSuccess('Awesome job! You nailed that concept!')
+      } else {
+        triggerError("Uh oh, not quite! Check the hint and try again.")
+      }
     } catch (err) {
       logError('submit_task_failed', err.message, 'handleSubmit')
       alert('Something went wrong submitting your answer. Please try again.')

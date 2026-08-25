@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { getStageById } from '../lib/roadmap'
 import { buildBookPages } from '../lib/bookPages'
 import { getSavedPageIndex, saveBookPageIndex } from '../lib/bookProgress'
-import { getModuleParts, flattenChapterNotes } from '../lib/learnContent'
+import { getModuleParts, flattenChapterNotes, getModuleLabel } from '../lib/learnContent'
+import { usePetBuddy } from '../context/PetBuddyContext'
 import OpenBookShell from './OpenBookShell'
 import {
   TocPage,
@@ -25,6 +26,7 @@ import CaseStudyPage from './book-pages/CaseStudyPage'
 // OpenBookShell, shared with DashboardBook; this component only owns the
 // stage-book-specific page sequencing and content.
 export default function BookReader({ stageId, coverImage, onClose, onBuddyContextChange }) {
+  const { triggerGuide } = usePetBuddy()
   const stageInfo = getStageById(stageId)
   const moduleParts = getModuleParts(stageId) // null for Tier 2/3 stages, which have no chapter content
   const pages = useMemo(() => buildBookPages(stageId), [stageId])
@@ -35,6 +37,9 @@ export default function BookReader({ stageId, coverImage, onClose, onBuddyContex
   // reports answers, read by that chapter's ChapterScorePage.
   const [quizAnswers, setQuizAnswers] = useState({})
   const page = pages[pageIndex]
+  // Guards the "here's this module" guide tip below so it fires once per
+  // book per session, not every time the TOC page is revisited.
+  const introducedStageId = useRef(null)
 
   useEffect(() => {
     saveBookPageIndex(stageId, pageIndex)
@@ -43,6 +48,10 @@ export default function BookReader({ stageId, coverImage, onClose, onBuddyContex
   useEffect(() => {
     if (page?.type === 'toc') {
       onBuddyContextChange({ screen: 'toc', stageId })
+      if (introducedStageId.current !== stageId) {
+        introducedStageId.current = stageId
+        triggerGuide(`Welcome to ${getModuleLabel(stageId)}! Pick a chapter below whenever you're ready.`)
+      }
       return
     }
     // Grounds the ask box in whatever's actually on screen, not just the
@@ -84,6 +93,7 @@ export default function BookReader({ stageId, coverImage, onClose, onBuddyContex
       })
     }
     // task/case-study pages report their own richer context via their own onContextChange
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, stageId, onBuddyContextChange])
 
   function goNext() {

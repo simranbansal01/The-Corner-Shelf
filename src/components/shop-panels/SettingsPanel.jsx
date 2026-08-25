@@ -2,6 +2,8 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import ThemeToggle from '../ThemeToggle'
 import Button from '../Button'
+import PetSizeControl from '../PetSizeControl'
+import BuddyCharacterControl from '../BuddyCharacterControl'
 
 // The shop's own settings menu, opened from the top-right HUD icon instead
 // of a nav bar (the floating header has no room for a full nav once it's
@@ -26,6 +28,9 @@ export default function SettingsPanel() {
         </div>
         <ThemeToggle />
       </div>
+
+      <BuddyCharacterControl />
+      <PetSizeControl />
 
       <div className="settings-row">
         <div>

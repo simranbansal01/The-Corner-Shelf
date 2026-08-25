@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { createCornerShelfScene } from '../lib/cornerShelfScene'
+import PetBuddy from './PetBuddy'
 
 // Host for the ported "Corner Shelf" walkable 3D scene. Renders the fixed
 // DOM shell the scene script expects (canvas-wrap/hud/overlays, matched by
@@ -25,6 +26,9 @@ export default function CornerShelfScene({
   panelOpen,
   onOpenPanel,
   unlockMessage,
+  directions,
+  onDirectionsPick,
+  pointTarget,
 }) {
   const sceneRef = useRef(null)
   const onOpenStageRef = useRef(onOpenStage)
@@ -69,6 +73,18 @@ export default function CornerShelfScene({
     sceneRef.current?.setOnboarding(onboarding)
     setTextValue('')
   }, [onboarding])
+
+  useEffect(() => {
+    if (!pointTarget) {
+      sceneRef.current?.clearPointer()
+    } else if (pointTarget.kind === 'stage') {
+      sceneRef.current?.pointToStage(pointTarget.id)
+    } else if (pointTarget.kind === 'wall') {
+      sceneRef.current?.pointToWall(pointTarget.id)
+    } else if (pointTarget.kind === 'nook') {
+      sceneRef.current?.pointToNook()
+    }
+  }, [pointTarget])
 
   // WASD/click-to-walk pause while a book reader or shop panel overlay is
   // open on top of the scene, same idea as the onboarding movement gate below.
@@ -154,6 +170,11 @@ export default function CornerShelfScene({
 
       {onboarding?.active && (
         <div className="shopkeeper-dialogue">
+          {onboarding.phase === 'pet' && (
+            <div className="shopkeeper-dialogue-niblet-preview">
+              <PetBuddy state="celebrate" position="inline" size={64} />
+            </div>
+          )}
           <p className="shopkeeper-dialogue-line">{onboarding.dialogue}</p>
 
           {onboarding.showTextInput && (
@@ -176,6 +197,30 @@ export default function CornerShelfScene({
           {onboarding.phase === 'reveal' && (
             <button type="button" className="btn btn-primary" onClick={onOnboardingConfirm}>
               Start exploring
+            </button>
+          )}
+        </div>
+      )}
+
+      {!onboarding?.active && directions?.active && (
+        <div className="shopkeeper-dialogue">
+          <p className="shopkeeper-dialogue-line">{directions.dialogue}</p>
+          {directions.options ? (
+            <div className="shopkeeper-dialogue-options">
+              {directions.options.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  className={opt.id === 'close' ? 'btn btn-secondary' : 'btn btn-primary'}
+                  onClick={() => onDirectionsPick(opt.id)}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <button type="button" className="btn btn-primary" onClick={() => onDirectionsPick('close')}>
+              Thanks!
             </button>
           )}
         </div>

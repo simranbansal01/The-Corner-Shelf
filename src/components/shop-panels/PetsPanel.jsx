@@ -6,13 +6,14 @@ import PetIllustration, { PET_OPTIONS } from '../PetIllustration'
 
 // Ported from the old routed Pets.jsx, same fields/writes, rendered inside
 // ShopPanel instead of a full page (opened from the companion corner,
-// reusing the same pet figurine art onboarding already introduced).
+// reusing the same pet figurine art onboarding already introduced). Sizing
+// used to live here too, but pet_size now scales Niblet (the corner buddy
+// icon, unrelated to which figurine is picked below) — see Settings ->
+// PetSizeControl.jsx instead.
 export default function PetsPanel() {
   const { user, profile, refreshProfile } = useAuth()
   const currentPet = profile?.pet_choice || 'sprout'
   const [savingPet, setSavingPet] = useState(null) // id currently being saved, or null
-  const [size, setSize] = useState(profile?.pet_size ?? 1)
-  const [savingSize, setSavingSize] = useState(false)
 
   async function selectPet(id) {
     if (id === currentPet || savingPet) return
@@ -27,24 +28,6 @@ export default function PetsPanel() {
       alert('Something went wrong saving that. Please try again.')
     } finally {
       setSavingPet(null)
-    }
-  }
-
-  function handleSizeChange(e) {
-    setSize(Number(e.target.value))
-  }
-
-  async function handleSizeCommit() {
-    setSavingSize(true)
-    try {
-      const { error } = await supabase.from('users').update({ pet_size: size }).eq('id', user.id)
-      if (error) throw error
-      logEvent('pet_size_changed', { pet_size: size })
-      await refreshProfile()
-    } catch (err) {
-      logError('pet_size_save_failed', err.message, 'handleSizeCommit')
-    } finally {
-      setSavingSize(false)
     }
   }
 
@@ -82,29 +65,6 @@ export default function PetsPanel() {
           )
         })}
       </div>
-
-      <h3 style={{ margin: '24px 0 4px 0' }}>Appearance</h3>
-      <div className="pets-appearance-row">
-        <div>
-          <h3 style={{ margin: 0 }}>Pet size</h3>
-          <p style={{ margin: 0 }}>Adjust how big your buddy shows up.</p>
-        </div>
-        <span className="pets-size-preview">
-          <PetIllustration pet={currentPet} state="idle" size={38 * size} />
-        </span>
-      </div>
-      <input
-        type="range"
-        min="0.7"
-        max="1.6"
-        step="0.05"
-        value={size}
-        onChange={handleSizeChange}
-        onMouseUp={handleSizeCommit}
-        onTouchEnd={handleSizeCommit}
-        className="pets-size-slider"
-      />
-      {savingSize && <p style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>Saving…</p>}
     </>
   )
 }

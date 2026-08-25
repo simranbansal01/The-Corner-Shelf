@@ -1,12 +1,13 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
-import { TIERS, isTierUnlocked } from '../lib/roadmap'
+import { TIERS, isTierUnlocked, getNextDirection } from '../lib/roadmap'
 import { getModuleLabel } from '../lib/learnContent'
 import { GOAL_OPTIONS, LEVEL_OPTIONS } from '../lib/onboardingQuestions'
 import { PLACEMENT_QUESTIONS, scorePlacement } from '../lib/placementQuestions'
 import { buildPathMessage } from '../lib/pathMessage'
 import { logEvent, logError } from '../lib/events'
+import { usePetBuddy } from '../context/PetBuddyContext'
 import Layout from '../components/Layout'
 import BookReader from '../components/BookReader'
 import DashboardBook from '../components/DashboardBook'
@@ -25,14 +26,22 @@ const PANEL_CONFIG = {
 }
 
 // panelType -> which dashboard book page it should open straight to. The
-// shopkeeper-desk 3D prop still calls onOpenPanel('profile'), so that click
-// now opens the dashboard book already flipped to the Profile page instead
-// of a standalone popup.
+// shopkeeper-desk 3D prop calls onOpenPanel('directions') instead (see
+// openPanel below) — Profile is still reachable from the dashboard book's
+// table of contents via Menu -> My Dashboard.
 const DASHBOARD_PANEL_PAGES = {
   trust: 'scorecard',
   history: 'scorecard',
-  profile: 'profile',
   dashboard: 'toc',
+}
+
+// Human-readable wall references for the directions dialogue, matching
+// WALL_BY_TIER_ORDER below (fixed regardless of which way the player is
+// currently facing, since the walls themselves don't move).
+const WALL_DIRECTION_COPY = {
+  back: 'the wall right behind me',
+  left: 'the wall on your left',
+  right: 'the wall on your right',
 }
 
 // The Three.js scene pulls in the `three` package (~600KB), so it's only
@@ -54,12 +63,15 @@ const TIER_COPY = {
   advanced: "You clearly know your way around AI already. You'll get the harder judgment calls from day one.",
 }
 
+const SHOP_ORIENTATION_BLURB = "One more thing: Module 1 lives on the shelf right behind me, Module 2 is to your left, and Module 3 is to your right once you unlock it. Whenever you want a pointer to your next lesson, just come talk to me."
+
 // Same conversation the old Onboarding/Placement/PlacementResult screens
 // held, now delivered by the shopkeeper standing in the shop itself instead
 // of on separate pages. Every Supabase write below is byte-for-byte what
 // those screens used to do, only where it happens changed.
 export default function Bookshelf() {
   const { user, profile, refreshProfile } = useAuth()
+  const { triggerSuccess } = usePetBuddy()
   const [attemptedIds, setAttemptedIds] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -83,6 +95,17 @@ export default function Bookshelf() {
   // Shown briefly on the sign/plaques the moment a module unlocks (compared
   // against progress from the last fetch, see refreshProgress below).
   const [unlockMessage, setUnlockMessage] = useState(null)
+
+  // The shopkeeper's post-onboarding "ask for directions" dialogue: null
+  // when closed, otherwise 'menu' | 'nextLesson' | 'tour' | 'settingsInfo' |
+  // 'nookInfo'. nextDirection holds the getNextDirection() result computed
+  // when 'nextLesson' is picked; tourStepIndex tracks position within
+  // TOUR_STEPS while directionsStep === 'tour'. The 3D beacon's target
+  // (pointTarget below) is derived from these rather than tracked
+  // separately.
+  const [directionsStep, setDirectionsStep] = useState(null)
+  const [nextDirection, setNextDirection] = useState(null)
+  const [tourStepIndex, setTourStepIndex] = useState(0)
 
   // Onboarding phase state. Starts at 'pet' for anyone without a tier yet;
   // 'done' (no shopkeeper UI at all) for everyone else. Once a tier is set
@@ -123,6 +146,8 @@ export default function Bookshelf() {
       logEvent('tier_unlocked', { tier_id: newlyUnlocked.id })
       setUnlockMessage(`Module ${newlyUnlocked.order} unlocked: ${newlyUnlocked.title}!`)
       setTimeout(() => setUnlockMessage(null), 6000)
+      // Niblet celebrates real bookshop moments too, not just task verdicts.
+      triggerSuccess(`You unlocked ${newlyUnlocked.title}! Great work.`)
     }
   }
 
@@ -144,6 +169,10 @@ export default function Bookshelf() {
   }
 
   function openPanel(panelType) {
+    if (panelType === 'directions') {
+      openDirections()
+      return
+    }
     if (DASHBOARD_PANEL_PAGES[panelType]) {
       openDashboardBook(DASHBOARD_PANEL_PAGES[panelType])
       return
@@ -156,6 +185,49 @@ export default function Bookshelf() {
   function closePanel() {
     logEvent('shop_panel_closed', { panel_type: openPanelType })
     setOpenPanelType(null)
+  }
+
+  function openDirections() {
+    logEvent('directions_opened')
+    setDirectionsStep('menu')
+  }
+
+  function closeDirections() {
+    logEvent('directions_closed')
+    setDirectionsStep(null)
+    setNextDirection(null)
+    setTourStepIndex(0)
+  }
+
+  function handleDirectionsPick(value) {
+    if (value === 'close') {
+      closeDirections()
+    } else if (value === 'menu') {
+      setDirectionsStep('menu')
+      setNextDirection(null)
+      setTourStepIndex(0)
+    } else if (value === 'next') {
+      logEvent('directions_next_lesson_requested')
+      setDirectionsStep('nextLesson')
+      setNextDirection(getNextDirection(attemptedIds))
+    } else if (value === 'tour') {
+      logEvent('directions_tour_requested')
+      setDirectionsStep('tour')
+      setNextDirection(null)
+      setTourStepIndex(0)
+    } else if (value === 'tourNext') {
+      setTourStepIndex((i) => i + 1)
+    } else if (value === 'tourBack') {
+      setTourStepIndex((i) => Math.max(0, i - 1))
+    } else if (value === 'settings') {
+      logEvent('directions_settings_info_requested')
+      setDirectionsStep('settingsInfo')
+      setNextDirection(null)
+    } else if (value === 'nook') {
+      logEvent('directions_nook_info_requested')
+      setDirectionsStep('nookInfo')
+      setNextDirection(null)
+    }
   }
 
   function openDashboardBook(pageKey) {
@@ -290,7 +362,11 @@ export default function Bookshelf() {
 
   const onboarding = useMemo(() => {
     if (phase === 'pet') {
-      return { active: true, phase: 'pet', dialogue: "Welcome to The Corner Shelf! Before we start, pick who's coming with you." }
+      return {
+        active: true,
+        phase: 'pet',
+        dialogue: "Welcome to The Corner Shelf! Before we start, pick who's coming with you. (And say hi to Niblet — he's the one who'll actually be helping you around here, no matter who you pick below!)",
+      }
     }
     if (phase === 'why') {
       return {
@@ -331,12 +407,120 @@ export default function Bookshelf() {
     }
     if (phase === 'reveal') {
       const tier = revealTier || 'basic'
-      const dialogue = [TIER_COPY[tier], profile?.path_message].filter(Boolean).join(' ')
+      const dialogue = [TIER_COPY[tier], profile?.path_message, SHOP_ORIENTATION_BLURB].filter(Boolean).join(' ')
       return { active: true, phase: 'reveal', dialogue }
     }
     return null
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, goal, placementIndex, revealTier, profile?.path_message])
+
+  // Step-by-step "Show me around" walk: each step's beacon (see pointTarget
+  // below) lights up the actual area being described instead of dumping
+  // everything into one paragraph of text. Module 3's wording depends on
+  // whether it's unlocked yet, same distinction the shopkeeper's onboarding
+  // reveal already makes elsewhere.
+  const tier3Unlocked = isTierUnlocked(3, attemptedIds)
+  const TOUR_STEPS = [
+    { dialogue: 'Module 1 lives right behind me, on the back wall — always open.', point: { kind: 'wall', id: 'back' } },
+    { dialogue: 'Module 2 is on the wall to your left.', point: { kind: 'wall', id: 'left' } },
+    {
+      dialogue: tier3Unlocked
+        ? 'Module 3 is on the wall to your right.'
+        : 'Module 3 is on the wall to your right, once you unlock it.',
+      point: { kind: 'wall', id: 'right' },
+    },
+    { dialogue: 'That cozy corner behind you is just for reading — no pressure, come sit whenever you like.', point: { kind: 'nook' } },
+    { dialogue: 'And up top, the Menu button has your Dashboard and Settings — that’s where you pick your buddy, resize them, and switch themes.', point: null },
+  ]
+
+  const directions = useMemo(() => {
+    if (directionsStep === 'menu') {
+      return {
+        active: true,
+        dialogue: 'Need a hand finding something?',
+        options: [
+          { id: 'next', label: "Where's my next lesson?" },
+          { id: 'tour', label: 'Show me around' },
+          { id: 'settings', label: "What's in Settings?" },
+          { id: 'nook', label: "What's the reading nook for?" },
+          { id: 'close', label: 'Nothing, thanks' },
+        ],
+      }
+    }
+    if (directionsStep === 'nextLesson') {
+      let dialogue
+      if (!nextDirection || nextDirection.type === 'complete') {
+        dialogue = "You've completed every module — there's nothing left for me to point you to!"
+      } else if (nextDirection.type === 'tier1_gap') {
+        dialogue = "You've finished the shop's Module 1 book — keep working through your Dashboard tasks and Module 2 will unlock."
+      } else if (nextDirection.type === 'locked') {
+        dialogue = 'Finish your current module first and the next one will unlock.'
+      } else {
+        dialogue = `Your next lesson is "${nextDirection.title}" — on ${WALL_DIRECTION_COPY[nextDirection.wall]}. Look for the glowing marker!`
+      }
+      return {
+        active: true,
+        dialogue,
+        options: [
+          { id: 'menu', label: 'Back' },
+          { id: 'close', label: 'Thanks!' },
+        ],
+      }
+    }
+    if (directionsStep === 'tour') {
+      const step = TOUR_STEPS[tourStepIndex]
+      const isFirst = tourStepIndex === 0
+      const isLast = tourStepIndex === TOUR_STEPS.length - 1
+      return {
+        active: true,
+        dialogue: step.dialogue,
+        options: [
+          { id: isFirst ? 'menu' : 'tourBack', label: 'Back' },
+          isLast ? { id: 'close', label: 'Got it, thanks!' } : { id: 'tourNext', label: 'Next' },
+        ],
+      }
+    }
+    if (directionsStep === 'settingsInfo') {
+      return {
+        active: true,
+        dialogue: "Settings is up in the top-right Menu — theme, your buddy's size, and which buddy follows you around. Pick between Niblet, Sir Claws-a-Lot, or Glitchy, whoever suits you.",
+        options: [
+          { id: 'menu', label: 'Back' },
+          { id: 'close', label: 'Nothing else, thanks' },
+        ],
+      }
+    }
+    if (directionsStep === 'nookInfo') {
+      return {
+        active: true,
+        dialogue: "That's just a spot to sit and read at your own pace — no tasks, no timer. Come back to your books whenever you're ready.",
+        options: [
+          { id: 'menu', label: 'Back' },
+          { id: 'close', label: 'Nothing else, thanks' },
+        ],
+      }
+    }
+    return null
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [directionsStep, nextDirection, tourStepIndex, tier3Unlocked])
+
+  // The 3D beacon's target, derived from whichever directions step is
+  // active — kept as one memo (rather than plumbed through as separate
+  // state) so CornerShelfScene's effect only refires when the logical
+  // target actually changes, not on every unrelated re-render.
+  const pointTarget = useMemo(() => {
+    if (directionsStep === 'nextLesson' && nextDirection?.type === 'stage') {
+      return { kind: 'stage', id: nextDirection.stageId }
+    }
+    if (directionsStep === 'tour') {
+      return TOUR_STEPS[tourStepIndex]?.point ?? null
+    }
+    if (directionsStep === 'nookInfo') {
+      return { kind: 'nook' }
+    }
+    return null
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [directionsStep, nextDirection, tourStepIndex, tier3Unlocked])
 
   const books = TIERS.flatMap((tier) => {
     const unlocked = isTierUnlocked(tier.order, attemptedIds)
@@ -358,7 +542,7 @@ export default function Bookshelf() {
   })
 
   return (
-    <Layout buddyContext={buddyContext} buddyPetOverride={pet} floatingNav>
+    <Layout buddyContext={buddyContext} floatingNav>
       {loading ? (
         <div className="page-center">Loading…</div>
       ) : (
@@ -376,9 +560,12 @@ export default function Bookshelf() {
             onOnboardingTextSubmit={handleOnboardingTextSubmit}
             onOnboardingConfirm={handleOnboardingConfirm}
             bookOpen={!!openStageId}
-            panelOpen={!!openPanelType || !!dashboardPage}
+            panelOpen={!!openPanelType || !!dashboardPage || !!directionsStep}
             onOpenPanel={openPanel}
             unlockMessage={unlockMessage}
+            directions={directions}
+            onDirectionsPick={handleDirectionsPick}
+            pointTarget={pointTarget}
           />
           {openStageId && (
             <BookReader

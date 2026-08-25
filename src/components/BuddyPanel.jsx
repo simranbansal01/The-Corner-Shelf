@@ -1,27 +1,35 @@
 import { useState, useRef, useEffect } from 'react'
-import { pickBuddyPrompt, pickGuidePrompt } from '../lib/buddyPrompts'
+import { pickBuddyPrompt } from '../lib/buddyPrompts'
 import { getLLMBuddyFeedback } from '../lib/buddyLLM'
 import { logEvent, logError } from '../lib/events'
 import { useAuth } from '../context/AuthContext'
-import PetIllustration from './PetIllustration'
+import { usePetBuddy } from '../context/PetBuddyContext'
+import PetBuddy from './PetBuddy'
 
-// The buddy is a small illustrated creature (not an emoji), sitting in the
-// corner by default, draggable anywhere on screen, with a gentle idle sway
-// so it feels alive without being distracting. Which creature it is comes
-// from the user's onboarding pick (profile.pet_choice), see PetIllustration.
+// The buddy is a sprite-sheet mascot (see PetBuddy.jsx), sitting in the
+// corner by default, draggable anywhere on screen, with a continuous
+// walk-in-place cycle so it feels alive without actually drifting around
+// the screen. Which character shows up is profile.buddy_character (see
+// BuddyCharacterControl.jsx) — separate from profile.pet_choice (sprout/
+// fox/owl/cat), which is still used elsewhere (companion-corner panel, the
+// 3D shop's onboarding figurine) and no longer affects this icon at all.
 //
-// context shape: { screen, taskId?, scenario?, aiOutput?, userJudgmentText?, currentAnswerSummary?, confidence?, isCorrect? }
-//
-// petOverride: mid-onboarding, the user's pet pick lives in Bookshelf's own
-// local state until the whole onboarding flow finishes and writes it (plus
-// everything else) to `users` in one save, see saveOnboardingAnswers. Without
-// this, the corner icon would keep showing the old/default pet through the
-// entire why/goal/level/placement flow after picking a different one,
-// since profile.pet_choice doesn't change until that final write + refresh.
-export default function BuddyPanel({ context, petOverride }) {
+// Two independent ways the buddy ends up on screen with something to say:
+//  1. Global triggers (usePetBuddy: triggerSuccess/triggerError/triggerGuide,
+//     see context/PetBuddyContext.jsx) — called directly from wherever the
+//     real event happens (task submission, chapter completion, module
+//     intros), with a static message. Auto-opens the panel, no LLM call.
+//  2. Manually clicking Niblet — still driven by the `context` prop below
+//     (screen/taskId/etc, fed by TaskPage/BookReader), which only ever
+//     covers 'guide' (mid-task hint box) and 'chapter' (ask-about-this-
+//     chapter box) now; verdict reactions moved to (1) so they're no longer
+//     click-gated.
+// context shape: { screen, taskId?, scenario?, aiOutput?, userJudgmentText?, currentAnswerSummary?, confidence? }
+export default function BuddyPanel({ context }) {
   const { profile } = useAuth()
-  const pet = petOverride || profile?.pet_choice || 'sprout'
+  const { state: globalState, message: globalMessage, setIdle: setGlobalIdle } = usePetBuddy()
   const petSize = profile?.pet_size ?? 1
+  const buddyCharacter = profile?.buddy_character || 'niblet'
   const [open, setOpen] = useState(false)
   const [waking, setWaking] = useState(false)
   const [thinking, setThinking] = useState(false)
@@ -30,52 +38,46 @@ export default function BuddyPanel({ context, petOverride }) {
   const [position, setPosition] = useState(null) // null = default corner position (set via CSS)
   const openedAt = useRef(null)
   const drag = useRef({ dragging: false, moved: false, startX: 0, startY: 0, origX: 0, origY: 0 })
-  const lastVerdictKey = useRef(null)
+  const openedViaTrigger = useRef(false)
 
   function defaultPos() {
     return { x: window.innerWidth - 76, y: window.innerHeight - 76 }
   }
 
-  // Four distinct modes, not just "has a verdict or not":
-  //  - 'reaction': a verdict exists (context.isCorrect is set), react to it.
-  //  - 'guide': the user is mid-task (on the task screen, task loaded) but
-  //    hasn't submitted a judgment yet. Help them think it through without
-  //    ever implying an answer, since nothing's been judged. Also gets the
-  //    ask box below, still routed through the server's GUIDING mode so a
-  //    typed question gets answered without ever leaking the verdict.
-  //  - 'chapter': reading a book chapter (video/notes/quiz page). No verdict
-  //    to react to, but there IS real content Buddy can answer questions
-  //    against, specific to whatever's on the current page (chapter notes,
-  //    the video's caption, or the exact quiz question on screen, see
-  //    BookReader's per-page-type buddyContext), via the ask box below and
-  //    the server's EXPLAINING instructions in supabase/functions/buddy-feedback.
-  //  - 'idle': nothing to react to and no chapter/task in progress (e.g.
-  //    clicked from the dashboard). Static message, no LLM call needed.
-  // Getting this wrong is exactly the bug this app teaches people to catch:
-  // earlier, clicking Buddy before submitting still called the LLM with no
-  // verdict, and it hallucinated a "nice, you got it right" reaction to an
-  // answer that was never given.
+  // Just the click-driven modes now — 'reaction' (task verdicts) and
+  // 'celebrate_event' (module unlocks) moved to the global trigger system,
+  // see the effect below reacting to usePetBuddy()'s state/message.
+  //  - 'guide': mid-task, hasn't submitted yet. Helps without ever implying
+  //    an answer — gets the ask box below, routed through the server's
+  //    GUIDING mode so a typed question gets answered without leaking the
+  //    verdict.
+  //  - 'chapter': reading a book chapter (video/notes/quiz page). Ask box
+  //    routed through the server's EXPLAINING mode, grounded in whatever's
+  //    on the current page (see BookReader's per-page-type buddyContext).
+  //  - 'idle': nothing to react to, e.g. clicked from the dashboard. Static
+  //    message, no LLM call needed.
   function resolveMode() {
-    const hasVerdict = context?.isCorrect !== null && context?.isCorrect !== undefined
-    if (hasVerdict) return 'reaction'
     if (context?.screen === 'task' && context?.taskId) return 'guide'
     if (context?.screen === 'chapter') return 'chapter'
     return 'idle'
   }
   const mode = resolveMode()
 
-  // Tries a live, grounded reaction first (Groq, then Gemini on failure,
-  // see lib/buddyLLM.js), and only falls back to the static templates if
-  // both providers fail or time out. Buddy should never go silent.
-  async function openWithReaction(source) {
-    const confidence = context?.confidence ?? null
-    const isCorrect = context?.isCorrect ?? null
+  // A live global trigger always wins visually over the click-driven mode —
+  // it's reacting to something that just actually happened, more important
+  // than "you have Niblet's panel open for a hint."
+  function resolveVisualState() {
+    if (globalState !== 'idle') return globalState
+    if (open && mode === 'guide') return 'guiding'
+    return 'idle'
+  }
+
+  // Click-driven open only (idle/guide/chapter) — reactions to real events
+  // now go through the global trigger effect below instead of here.
+  async function openWithReaction() {
+    openedViaTrigger.current = false
     openedAt.current = Date.now()
-    logEvent(source === 'auto' ? 'buddy_auto_reacted' : 'buddy_icon_clicked', {
-      context_screen: context?.screen,
-      context_task_id: context?.taskId ?? null,
-      mode,
-    })
+    logEvent('buddy_icon_clicked', { context_screen: context?.screen, context_task_id: context?.taskId ?? null, mode })
     setWaking(true)
     setTimeout(() => setWaking(false), 420)
     setOpen(true)
@@ -88,8 +90,6 @@ export default function BuddyPanel({ context, petOverride }) {
       return
     }
 
-    // No verdict to react to yet here either, just an invite, the real
-    // answer only happens once they type a question (see askQuestion).
     if (mode === 'chapter') {
       setPrompt("Stuck on something in this chapter? Ask below and I'll explain it using the notes.")
       setThinking(false)
@@ -97,36 +97,11 @@ export default function BuddyPanel({ context, petOverride }) {
       return
     }
 
-    setThinking(true)
-    setPrompt('')
-
-    logEvent('llm_call_started', { context_screen: context?.screen, context_task_id: context?.taskId ?? null, mode })
-    const llmResult = await getLLMBuddyFeedback({
-      mode,
-      screen: context?.screen,
-      taskId: context?.taskId,
-      scenario: context?.scenario,
-      aiOutput: context?.aiOutput,
-      confidence,
-      isCorrect,
-      userJudgmentText: context?.userJudgmentText,
-      currentAnswerSummary: context?.currentAnswerSummary,
-      goal: profile?.onboarding_goal,
-    })
-
-    if (llmResult) {
-      setPrompt(llmResult.text)
-      setThinking(false)
-      logEvent('llm_call_succeeded', { source: llmResult.source, mode })
-      logEvent('buddy_prompt_shown', { prompt_template_id: llmResult.source, state: llmResult.source })
-      return
-    }
-
-    logError('llm_call_failed', 'both providers failed or timed out', 'openWithReaction')
-    const { stateKey, prompt: text } = mode === 'guide' ? pickGuidePrompt() : pickBuddyPrompt(confidence, isCorrect)
-    setPrompt(text)
+    // mode === 'guide': an invite, the real answer only happens once they
+    // type a question (see askQuestion).
+    setPrompt("Stuck? Ask below for a hint — I won't give away the answer.")
     setThinking(false)
-    logEvent('buddy_prompt_shown', { prompt_template_id: stateKey, state: stateKey })
+    logEvent('buddy_prompt_shown', { prompt_template_id: 'guide_invite', state: 'guide' })
   }
 
   // The ask box's submit, available on both 'chapter' pages (video/notes/
@@ -178,7 +153,6 @@ export default function BuddyPanel({ context, petOverride }) {
       setPrompt(llmResult.text)
       setThinking(false)
       logEvent('llm_call_succeeded', { source: llmResult.source, mode: payload.mode })
-      logEvent('buddy_prompt_shown', { prompt_template_id: llmResult.source, state: payload.mode })
       // Question + answer together in one event (not correlated across two
       // rows by timestamp, which would be fragile) so BuddyScorecardPage.jsx
       // can show the actual response under each question, not just the ask.
@@ -191,16 +165,31 @@ export default function BuddyPanel({ context, petOverride }) {
     setThinking(false)
   }
 
-  // The buddy reacts on its own the moment a verdict comes in. It shouldn't
-  // require the user to notice it's clickable to ever get feedback from it.
+  // Reacts to global triggers (triggerSuccess/triggerError/triggerGuide,
+  // called directly from wherever the real event happens — see
+  // PetBuddyContext.jsx). Auto-opens with the static message, no LLM call;
+  // auto-closes again once the global state resets to 'idle', but only if
+  // this panel is still showing that triggered message (not a manual
+  // conversation the user started after the trigger fired).
   useEffect(() => {
-    const key = context?.taskId ? `${context.taskId}:${context.isCorrect}` : null
-    if (context?.isCorrect !== null && context?.isCorrect !== undefined && key !== lastVerdictKey.current) {
-      lastVerdictKey.current = key
-      openWithReaction('auto')
+    if (globalState === 'idle') {
+      if (openedViaTrigger.current) {
+        setOpen(false)
+        openedViaTrigger.current = false
+      }
+      return
     }
+    openedViaTrigger.current = true
+    openedAt.current = Date.now()
+    logEvent('buddy_auto_reacted', { trigger_state: globalState })
+    setWaking(true)
+    setTimeout(() => setWaking(false), 420)
+    setOpen(true)
+    setThinking(false)
+    setPrompt(globalMessage || '')
+    logEvent('buddy_prompt_shown', { prompt_template_id: 'global_trigger', state: globalState })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [context?.isCorrect, context?.taskId])
+  }, [globalState, globalMessage])
 
   function handlePointerDown(e) {
     const pos = position || defaultPos()
@@ -229,16 +218,23 @@ export default function BuddyPanel({ context, petOverride }) {
 
   function handleToggle() {
     if (!open) {
-      openWithReaction('click')
+      openWithReaction()
     } else {
       const durationMs = openedAt.current ? Date.now() - openedAt.current : 0
       logEvent('buddy_panel_closed', { duration_open_ms: durationMs })
       setOpen(false)
+      // Closing a triggered message (most relevantly a guide tip, which has
+      // no auto-timeout) should also clear the global state, or it'd just
+      // pop back open on the next render since globalState is still active.
+      if (openedViaTrigger.current) {
+        openedViaTrigger.current = false
+        setGlobalIdle()
+      }
     }
   }
 
   const pos = position || defaultPos()
-  const containerSize = 64 * petSize
+  const containerSize = 100 * petSize
 
   return (
     <div className="buddy-wrapper" style={{ left: pos.x, top: pos.y }}>
@@ -246,7 +242,7 @@ export default function BuddyPanel({ context, petOverride }) {
         <div className={`buddy-panel ${mode === 'chapter' || mode === 'guide' ? 'buddy-panel-wide' : ''}`} style={{ bottom: containerSize + 10 }}>
           <button className="buddy-close" onClick={handleToggle} aria-label="Close">×</button>
           <p className="buddy-prompt-text">{thinking ? 'Thinking…' : prompt}</p>
-          {(mode === 'chapter' || mode === 'guide') && (
+          {!openedViaTrigger.current && (mode === 'chapter' || mode === 'guide') && (
             <div className="buddy-ask-box">
               <textarea
                 className="buddy-ask-input"
@@ -285,7 +281,7 @@ export default function BuddyPanel({ context, petOverride }) {
         aria-label="Your practice buddy"
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleToggle() }}
       >
-        <PetIllustration pet={pet} state={waking ? 'waking' : open ? 'active' : 'idle'} size={46 * petSize} />
+        <PetBuddy character={buddyCharacter} state={resolveVisualState()} position="inline" size={76 * petSize} />
       </div>
     </div>
   )
