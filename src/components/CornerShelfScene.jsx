@@ -216,6 +216,26 @@ export default function CornerShelfScene({
         <div className="shopkeeper-dialogue">
           <p className="shopkeeper-dialogue-line">{onboarding.dialogue}</p>
 
+          {onboarding.options && onboarding.options.length > 0 && (
+            // Same lettered-badge treatment as the placement quiz (see the
+            // 'placement' branch above) — "Confident, use it daily and know
+            // prompting well" doesn't read comfortably as a plain unmarked
+            // stack of buttons any more than a placement question's options do.
+            <div className="placement-options">
+              {onboarding.options.map((opt, i) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  className="placement-option-btn"
+                  onClick={() => onOnboardingPick(opt.id)}
+                >
+                  <span className="placement-option-marker">{String.fromCharCode(65 + i)}</span>
+                  <span className="placement-option-label">{opt.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
           {onboarding.showTextInput && (
             <div className="shopkeeper-dialogue-input">
               <textarea

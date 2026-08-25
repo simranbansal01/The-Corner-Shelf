@@ -515,26 +515,6 @@ function makeLessonCoverTexture(title, colorHex) {
   return tex;
 }
 
-// Shared word-wrap for canvas text, same greedy-line-break approach as
-// makeLessonCoverTexture above, factored out since the onboarding board/tile
-// textures below both need multi-line wrapping too.
-function wrapLines(ctx, text, maxWidth) {
-  const words = text.split(' ');
-  const lines = [];
-  let line = '';
-  words.forEach(w => {
-    const test = line ? line + ' ' + w : w;
-    if (ctx.measureText(test).width > maxWidth && line) {
-      lines.push(line);
-      line = w;
-    } else {
-      line = test;
-    }
-  });
-  if (line) lines.push(line);
-  return lines;
-}
-
 // The companion-corner decorative figurine (buildShopProps, unrelated to
 // the corner buddy — see BUDDY_PREVIEW_DEFS below for that). def shape/ids
 // match PET_OPTIONS in PetIllustration.jsx (that component can't be reused
@@ -595,49 +575,6 @@ function buildBuddyPreview(def) {
   return sprite;
 }
 
-function makeTileTexture(text) {
-  const c = document.createElement('canvas');
-  c.width = 320; c.height = 120;
-  const ctx = c.getContext('2d');
-  ctx.fillStyle = '#f9f3e3';
-  ctx.fillRect(0, 0, 320, 120);
-  ctx.strokeStyle = '#a9714f';
-  ctx.lineWidth = 5;
-  ctx.strokeRect(6, 6, 308, 108);
-  ctx.fillStyle = '#3a2f22';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  let fontSize = 22;
-  ctx.font = `bold ${fontSize}px Georgia, serif`;
-  let lines = wrapLines(ctx, text, 270);
-  while (lines.length > 3 && fontSize > 13) {
-    fontSize -= 2;
-    ctx.font = `bold ${fontSize}px Georgia, serif`;
-    lines = wrapLines(ctx, text, 270);
-  }
-  const lineHeight = fontSize + 6;
-  const startY = 60 - ((lines.length - 1) * lineHeight) / 2;
-  lines.forEach((l, i) => ctx.fillText(l, 160, startY + i * lineHeight));
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
-
-// A single clickable answer tile, used for the goal/level/placement
-// onboarding phases. Faces +z (toward the fixed onboarding camera), same
-// convention as the wall sign/plaques.
-function buildOptionTile(text, x) {
-  const tile = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.4, 0.15),
-    new THREE.MeshBasicMaterial({ map: makeTileTexture(text), toneMapped: false, side: THREE.DoubleSide })
-  );
-  // Same vantage-point tuning as the pet figurines: high and just past the
-  // desk, clear of both the question board above and the dialogue panel below.
-  tile.position.set(x, 0.95, -0.15);
-  addOutline(tile, 0x3a2f22, 0.35);
-  return tile;
-}
-
 // Removes whatever the previous onboarding phase built (figurines, tiles,
 // question board) before the next phase adds its own, so nothing piles up
 // across a single scene instance's onboarding lifetime.
@@ -657,11 +594,12 @@ function clearOnboardingProps() {
   onboardingClickables = [];
 }
 
-// Builds whatever 3D props the given onboarding phase needs. 'why' and
-// 'placement' have none — 'why' is a DOM textarea, and 'placement' is now a
-// full DOM quiz card (see CornerShelfScene.jsx), both rendered outside this
-// module. Placement questions/options run too long to read comfortably on
-// the small world-space tiles/board this used to build for it.
+// Builds whatever 3D props the given onboarding phase needs. 'why', 'goal',
+// 'level', and 'placement' have none — 'why' is a DOM textarea, and the
+// other three render as a DOM option list (see CornerShelfScene.jsx), all
+// outside this module. Sentence-length options ("Confident, use it daily
+// and know prompting well") don't read comfortably on the small
+// world-space tiles this used to build for them.
 function applyOnboardingPhase(ob) {
   clearOnboardingProps();
   if (!ob || !ob.active) return;
@@ -676,16 +614,6 @@ function applyOnboardingPhase(ob) {
       preview.position.set(xs[i], 0.85, -0.15);
       onboardingGroup.add(preview);
       onboardingClickables.push(preview);
-    });
-  } else if (ob.phase !== 'placement' && ob.options && ob.options.length) {
-    const n = ob.options.length;
-    const spacing = Math.min(0.5, 1.8 / n);
-    const startX = -((n - 1) * spacing) / 2;
-    ob.options.forEach((opt, i) => {
-      const tile = buildOptionTile(opt.label, startX + i * spacing);
-      tile.userData.onboardingValue = opt.id;
-      onboardingGroup.add(tile);
-      onboardingClickables.push(tile);
     });
   }
 }
