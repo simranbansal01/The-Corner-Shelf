@@ -591,17 +591,65 @@ p { line-height: 1.75; margin: 0 0 var(--space-2) 0; color: var(--color-text); }
 .share-tile:hover { border-color: var(--color-primary); transform: translateY(-2px); }
 .share-tile-icon { font-size: 22px; }
 
-.learning-path-tier { border: 1px solid var(--color-border); border-radius: var(--radius); padding: var(--space-2) var(--space-3); margin-bottom: var(--space-2); }
-.learning-path-tier-header { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-2); }
-.learning-path-tier-title { font-weight: 800; margin: 0; }
-.learning-path-tier-subtitle { font-size: 13px; color: var(--color-text-muted); margin: 2px 0 0 0; }
-.learning-path-tier-badge { font-size: 13px; font-weight: 700; color: var(--color-primary-dark); white-space: nowrap; }
-.learning-path-tier-locked { color: var(--color-text-muted); }
+/* Learning Path — one continuous trail: a diamond waypoint per tier, then a
+   numbered stop per stage, all threaded on a single line (.path-trail::before).
+   Locked tiers still render their stops (dimmed, .path-stop-locked) instead of
+   collapsing to a bare badge, so the path ahead stays visible, same as the
+   shelf's own locked walls. Waypoint and stop markers share the same 36px
+   column width so their centers land on the line at the same x (18px),
+   whatever their shape. */
+.path-trail { list-style: none; margin: 0; padding: 0; position: relative; }
+.path-trail::before {
+  content: '';
+  position: absolute;
+  left: 17px;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  background: var(--color-border);
+}
+.path-tier-group { margin-bottom: var(--space-4); }
+.path-tier-group:last-child { margin-bottom: 0; }
+
+.path-waypoint { display: flex; gap: var(--space-2); align-items: flex-start; position: relative; z-index: 1; margin-bottom: var(--space-2); }
+.path-waypoint-marker {
+  flex: none; width: 36px; height: 36px; margin-top: 2px;
+  border-radius: 9px;
+  transform: rotate(45deg);
+  background: var(--color-primary);
+  box-shadow: 0 0 0 4px var(--color-surface);
+}
+.path-marker-locked { background: var(--color-disabled); }
+.path-waypoint-card { flex: 1; padding-top: 4px; min-width: 0; }
+.path-waypoint-kicker { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-primary-dark); margin: 0 0 2px; }
+.path-waypoint-title { font-size: 1.05rem; font-weight: 800; margin: 0 0 2px; }
+.path-waypoint-subtitle { font-size: 13px; color: var(--color-text-muted); margin: 0 0 10px; }
+.path-locked-badge {
+  display: inline-block; font-size: 12px; font-weight: 700; color: var(--color-text-muted);
+  background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 999px; padding: 3px 10px;
+}
 .progress-bar-track { width: 100%; height: 8px; border-radius: 4px; background: var(--color-bg); border: 1px solid var(--color-border); margin-top: var(--space-2); overflow: hidden; }
 .progress-bar-fill { height: 100%; background: var(--color-primary); border-radius: 4px; }
-.learning-path-stage-list { list-style: none; padding: 0; margin: var(--space-2) 0 0 0; font-size: 14px; }
-.learning-path-stage-row { display: flex; justify-content: space-between; padding: 6px 0; color: var(--color-text-muted); }
-.learning-path-stage-complete { color: var(--color-primary-dark); font-weight: 700; }
+
+.path-stops { list-style: none; margin: 0; padding: 0; }
+.path-stop { display: flex; gap: var(--space-2); align-items: flex-start; position: relative; z-index: 1; padding: 6px 0; }
+.path-stop-locked { opacity: 0.55; }
+.path-stop-marker {
+  flex: none; width: 36px; height: 36px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700;
+  background: var(--color-surface);
+  border: 2px solid var(--color-primary);
+  color: var(--color-primary-dark);
+}
+.path-stop-locked .path-stop-marker { background: var(--color-bg); border-color: var(--color-disabled); color: var(--color-text-muted); }
+.path-stop-complete { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
+.path-stop-card { flex: 1; padding-top: 6px; min-width: 0; display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-2); }
+.path-stop-text { min-width: 0; }
+.path-stop-title { font-weight: 700; margin: 0; }
+.path-stop-desc { font-size: 13px; color: var(--color-text-muted); margin: 3px 0 0; }
+.path-stop-status { font-size: 13px; font-weight: 700; color: var(--color-text-muted); white-space: nowrap; }
+.path-stop-status-complete { color: var(--color-primary-dark); }
 
 /* Buddy — Niblet, draggable anywhere, no circular frame/backdrop around it
    (see PetBuddy.jsx) — just the character itself, floating free. */
