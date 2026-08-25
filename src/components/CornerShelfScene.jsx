@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { createCornerShelfScene } from '../lib/cornerShelfScene'
-import PetBuddy from './PetBuddy'
 
 // Host for the ported "Corner Shelf" walkable 3D scene. Renders the fixed
 // DOM shell the scene script expects (canvas-wrap/hud/overlays, matched by
@@ -168,13 +167,43 @@ export default function CornerShelfScene({
         </div>
       </div>
 
-      {onboarding?.active && (
-        <div className="shopkeeper-dialogue">
-          {onboarding.phase === 'pet' && (
-            <div className="shopkeeper-dialogue-niblet-preview">
-              <PetBuddy state="celebrate" position="inline" size={64} />
+      {onboarding?.active && onboarding.phase === 'placement' && (
+        // Full DOM quiz card rather than the 3D question-board + tiny
+        // world-space tiles the other onboarding phases use (see
+        // applyOnboardingPhase in cornerShelfScene.js, which skips building
+        // those for this phase) — placement questions/options run much
+        // longer than a goal/level label, and needed room to actually be
+        // read comfortably plus a real progress indicator.
+        <div className="shopkeeper-dialogue shopkeeper-dialogue-wide placement-quiz">
+          <div className="placement-progress">
+            <span className="placement-progress-label">
+              Question {onboarding.questionNumber} of {onboarding.questionTotal}
+            </span>
+            <div className="placement-progress-track">
+              <div
+                className="placement-progress-fill"
+                style={{ width: `${(onboarding.questionNumber / onboarding.questionTotal) * 100}%` }}
+              />
             </div>
-          )}
+          </div>
+          <p className="placement-question-text">{onboarding.questionText}</p>
+          <div className="placement-options">
+            {onboarding.options.map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                className="placement-option-btn"
+                onClick={() => onOnboardingPick(opt.id)}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {onboarding?.active && onboarding.phase !== 'placement' && (
+        <div className="shopkeeper-dialogue">
           <p className="shopkeeper-dialogue-line">{onboarding.dialogue}</p>
 
           {onboarding.showTextInput && (

@@ -1129,11 +1129,6 @@ p { line-height: 1.75; margin: 0 0 var(--space-2) 0; color: var(--color-text); }
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
   text-align: center;
 }
-.corner-shelf .shopkeeper-dialogue-niblet-preview {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 0.5rem;
-}
 .corner-shelf .shopkeeper-dialogue-line {
   margin: 0 0 0.7rem;
   color: var(--shelf-ink);
@@ -1171,6 +1166,66 @@ p { line-height: 1.75; margin: 0 0 var(--space-2) 0; color: var(--color-text); }
 .corner-shelf .shopkeeper-dialogue .btn-secondary:hover:not(:disabled) {
   border-color: var(--shelf-brass);
   color: var(--shelf-brass);
+}
+
+/* Placement quiz — a real DOM card (question + progress + full-width
+   answer list) instead of the tiny 3D world-space tiles the other
+   onboarding phases use; those work fine for a two-word label like
+   "Beginner" but not for a full sentence-length question/answer. */
+.corner-shelf .shopkeeper-dialogue-wide { width: min(38rem, calc(100vw - 2rem)); }
+.corner-shelf .placement-quiz { text-align: left; }
+.corner-shelf .placement-progress { margin-bottom: 1rem; }
+.corner-shelf .placement-progress-label {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--shelf-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.corner-shelf .placement-progress-track {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  height: 6px;
+  overflow: hidden;
+}
+.corner-shelf .placement-progress-fill {
+  background: var(--shelf-brass);
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+.corner-shelf .placement-question-text {
+  margin: 0 0 1rem;
+  color: var(--shelf-ink);
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+.corner-shelf .placement-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.corner-shelf .placement-option-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.7rem 0.9rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--shelf-panel-edge);
+  border-radius: 8px;
+  color: var(--shelf-ink);
+  font-family: inherit;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.corner-shelf .placement-option-btn:hover {
+  border-color: var(--shelf-brass);
+  background: rgba(255, 255, 255, 0.09);
 }
 
 /* Book-page look for Task/Learn screens, reached by picking up a book in

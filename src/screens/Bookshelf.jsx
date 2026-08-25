@@ -113,7 +113,7 @@ export default function Bookshelf() {
   // being empty, but we still hold at 'reveal' until the player confirms,
   // so the tier/path-message beat has a moment on screen before exploring.
   const [phase, setPhase] = useState(() => (profile?.tier ? 'done' : 'pet'))
-  const [pet, setPet] = useState(null)
+  const [buddyCharacter, setBuddyCharacter] = useState(null)
   const [why, setWhy] = useState('')
   const [goal, setGoal] = useState(null)
   const [goalOther, setGoalOther] = useState('')
@@ -240,7 +240,10 @@ export default function Bookshelf() {
     setDashboardPage(null)
   }
 
-  // Same fields, same table as the old Onboarding.jsx finish().
+  // Same fields, same table as the old Onboarding.jsx finish() — pet_choice
+  // is deliberately not written here anymore: this step now picks the real
+  // corner buddy (buddy_character), not the older companion-corner figurine.
+  // pet_choice keeps its own DB default ('sprout') until changed in Settings.
   async function saveOnboardingAnswers(levelValue) {
     try {
       const pathMessage = buildPathMessage({ goal, level: levelValue })
@@ -251,13 +254,13 @@ export default function Bookshelf() {
           onboarding_goal: goal,
           onboarding_goal_other: goal === 'other' ? goalOther : null,
           self_rated_level: levelValue,
-          pet_choice: pet,
+          buddy_character: buddyCharacter,
           path_message: pathMessage,
         })
         .eq('id', user.id)
       if (error) throw error
 
-      logEvent('onboarding_completed', { self_rated_level: levelValue, goal, pet_choice: pet })
+      logEvent('onboarding_completed', { self_rated_level: levelValue, goal, buddy_character: buddyCharacter })
       await refreshProfile()
 
       if (levelValue === 'beginner') {
@@ -325,11 +328,11 @@ export default function Bookshelf() {
     }
   }
 
-  // 3D-prop answers (pet figurine / option tile clicks) route here.
+  // 3D-prop answers (buddy preview / option tile clicks) route here.
   function handleOnboardingPick(value) {
     if (phase === 'pet') {
-      logEvent('onboarding_question_answered', { question_id: 'pet_choice', answer_value: value })
-      setPet(value)
+      logEvent('onboarding_question_answered', { question_id: 'buddy_character', answer_value: value })
+      setBuddyCharacter(value)
       setPhase('why')
     } else if (phase === 'goal') {
       logEvent('onboarding_question_answered', { question_id: 'goal', answer_value: value })
@@ -365,7 +368,7 @@ export default function Bookshelf() {
       return {
         active: true,
         phase: 'pet',
-        dialogue: "Welcome to The Corner Shelf! Before we start, pick who's coming with you. (And say hi to Niblet — he's the one who'll actually be helping you around here, no matter who you pick below!)",
+        dialogue: "Welcome to The Corner Shelf! Before we start, pick your buddy — they'll follow you around and react as you go. (You can always switch later in Settings.)",
       }
     }
     if (phase === 'why') {
@@ -400,7 +403,8 @@ export default function Bookshelf() {
       return {
         active: true,
         phase: 'placement',
-        dialogue: `Question ${placementIndex + 1} of ${PLACEMENT_QUESTIONS.length}`,
+        questionNumber: placementIndex + 1,
+        questionTotal: PLACEMENT_QUESTIONS.length,
         questionText: q.text,
         options: q.options.map((o) => ({ id: o.id, label: o.text })),
       }

@@ -522,18 +522,10 @@ function wrapLines(ctx, text, maxWidth) {
   return lines;
 }
 
-// The four companion figurines shown on the floor in front of the counter
-// during the 'pet' onboarding phase. Ids/colors match PET_OPTIONS in
-// PetIllustration.jsx (that component can't be reused here, this scene has
-// no React/JSX dependency), so whichever id comes back through
-// onOnboardingPick lines up with the same pet records the rest of the app uses.
-const PET_FIGURINE_DEFS = [
-  { id: 'sprout', color: 0x7fbb6c, topper: 'leaf' },
-  { id: 'fox', color: 0xc96a3c, topper: 'ear' },
-  { id: 'owl', color: 0x7d6448, topper: 'ear' },
-  { id: 'cat', color: 0xc9b48c, topper: 'ear' },
-];
-
+// The companion-corner decorative figurine (buildShopProps, unrelated to
+// the corner buddy — see BUDDY_PREVIEW_DEFS below for that). def shape/ids
+// match PET_OPTIONS in PetIllustration.jsx (that component can't be reused
+// here, this scene has no React/JSX dependency).
 function buildPetFigurine(def) {
   const group = new THREE.Group();
   const bodyMat = toonMat(def.color);
@@ -566,6 +558,28 @@ function buildPetFigurine(def) {
 
   group.userData.onboardingValue = def.id;
   return group;
+}
+
+// The 3 real corner-buddy characters (see public/{folder}/idle-1.png, same
+// sprite sheets PetBuddy.jsx renders elsewhere), shown as sprite previews
+// during the onboarding 'pet' phase — this is a genuine buddy-character
+// pick (writes profile.buddy_character), unlike buildPetFigurine above,
+// which is the older, unrelated companion-corner decoration.
+const BUDDY_PREVIEW_DEFS = [
+  { id: 'niblet', folder: 'niblet', aspect: 416 / 436 },
+  { id: 'sir-claws-a-lot', folder: 'sir-claws-a-lot', aspect: 128 / 164 },
+  { id: 'glitchy', folder: 'glitchy', aspect: 158 / 143 },
+];
+
+function buildBuddyPreview(def) {
+  const texture = new THREE.TextureLoader().load(`/${def.folder}/idle-1.png`);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true }));
+  const height = 0.34;
+  sprite.scale.set(height * def.aspect, height, 1);
+  sprite.center.set(0.5, 0);
+  sprite.userData.onboardingValue = def.id;
+  return sprite;
 }
 
 function makeTileTexture(text) {
@@ -611,47 +625,6 @@ function buildOptionTile(text, x) {
   return tile;
 }
 
-function makeBoardTexture(text) {
-  const c = document.createElement('canvas');
-  c.width = 640; c.height = 220;
-  const ctx = c.getContext('2d');
-  ctx.fillStyle = '#28402f';
-  ctx.fillRect(0, 0, 640, 220);
-  ctx.strokeStyle = '#d9b458';
-  ctx.lineWidth = 7;
-  ctx.strokeRect(12, 12, 616, 196);
-  ctx.fillStyle = '#e9d59a';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  let fontSize = 30;
-  ctx.font = `bold ${fontSize}px Georgia, "Iowan Old Style", serif`;
-  let lines = wrapLines(ctx, text, 560);
-  while (lines.length > 4 && fontSize > 16) {
-    fontSize -= 2;
-    ctx.font = `bold ${fontSize}px Georgia, "Iowan Old Style", serif`;
-    lines = wrapLines(ctx, text, 560);
-  }
-  const lineHeight = fontSize + 8;
-  const startY = 110 - ((lines.length - 1) * lineHeight) / 2;
-  lines.forEach((l, i) => ctx.fillText(l, 320, startY + i * lineHeight));
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
-
-function buildQuestionBoard(text) {
-  const board = new THREE.Mesh(
-    new THREE.PlaneGeometry(1.0, 0.28),
-    new THREE.MeshBasicMaterial({ map: makeBoardTexture(text), toneMapped: false })
-  );
-  // Clear of the option tiles below it (tiles: y=0.95, height 0.15, so
-  // top edge is ~1.025), otherwise the board's own plane intercepts the
-  // raycast for clicks near the top of a tile before it reaches the tile.
-  board.position.set(0, 1.35, 0.05);
-  addOutline(board, 0x1c2c22, 0.4);
-  return board;
-}
-
 // Removes whatever the previous onboarding phase built (figurines, tiles,
 // question board) before the next phase adds its own, so nothing piles up
 // across a single scene instance's onboarding lifetime.
@@ -671,8 +644,11 @@ function clearOnboardingProps() {
   onboardingClickables = [];
 }
 
-// Builds whatever 3D props the given onboarding phase needs. 'why' has none,
-// that phase is a DOM textarea rendered outside this module.
+// Builds whatever 3D props the given onboarding phase needs. 'why' and
+// 'placement' have none — 'why' is a DOM textarea, and 'placement' is now a
+// full DOM quiz card (see CornerShelfScene.jsx), both rendered outside this
+// module. Placement questions/options run too long to read comfortably on
+// the small world-space tiles/board this used to build for it.
 function applyOnboardingPhase(ob) {
   clearOnboardingProps();
   if (!ob || !ob.active) return;
@@ -681,14 +657,14 @@ function applyOnboardingPhase(ob) {
     // Chest-height and just past the desk (not on the floor, close to the
     // camera), so they land clearly inside the frame instead of down near
     // the player's feet, off-screen below the dialogue panel.
-    const xs = [-0.6, -0.2, 0.2, 0.6];
-    PET_FIGURINE_DEFS.forEach((def, i) => {
-      const fig = buildPetFigurine(def);
-      fig.position.set(xs[i], 1.0, -0.15);
-      onboardingGroup.add(fig);
-      onboardingClickables.push(fig);
+    const xs = [-0.5, 0, 0.5];
+    BUDDY_PREVIEW_DEFS.forEach((def, i) => {
+      const preview = buildBuddyPreview(def);
+      preview.position.set(xs[i], 0.85, -0.15);
+      onboardingGroup.add(preview);
+      onboardingClickables.push(preview);
     });
-  } else if (ob.options && ob.options.length) {
+  } else if (ob.phase !== 'placement' && ob.options && ob.options.length) {
     const n = ob.options.length;
     const spacing = Math.min(0.5, 1.8 / n);
     const startX = -((n - 1) * spacing) / 2;
@@ -698,9 +674,6 @@ function applyOnboardingPhase(ob) {
       onboardingGroup.add(tile);
       onboardingClickables.push(tile);
     });
-    if (ob.phase === 'placement' && ob.questionText) {
-      onboardingGroup.add(buildQuestionBoard(ob.questionText));
-    }
   }
 }
 
