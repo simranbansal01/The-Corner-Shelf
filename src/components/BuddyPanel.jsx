@@ -24,7 +24,7 @@ import PetBuddy from './PetBuddy'
 //     covers 'guide' (mid-task hint box) and 'chapter' (ask-about-this-
 //     chapter box) now; verdict reactions moved to (1) so they're no longer
 //     click-gated.
-// context shape: { screen, taskId?, scenario?, aiOutput?, userJudgmentText?, currentAnswerSummary?, confidence? }
+// context shape: { screen, taskId?, quizPending?, scenario?, aiOutput?, userJudgmentText?, currentAnswerSummary?, confidence? }
 export default function BuddyPanel({ context }) {
   const { profile } = useAuth()
   const { state: globalState, message: globalMessage, setIdle: setGlobalIdle } = usePetBuddy()
@@ -50,14 +50,20 @@ export default function BuddyPanel({ context }) {
   //  - 'guide': mid-task, hasn't submitted yet. Helps without ever implying
   //    an answer — gets the ask box below, routed through the server's
   //    GUIDING mode so a typed question gets answered without leaking the
-  //    verdict.
+  //    verdict. An unanswered chapter quiz question is guide mode too (see
+  //    quizPending below): same no-spoilers rule applies, it's still a
+  //    question with a right answer the reader hasn't submitted yet.
   //  - 'chapter': reading a book chapter (video/notes/quiz page). Ask box
   //    routed through the server's EXPLAINING mode, grounded in whatever's
   //    on the current page (see BookReader's per-page-type buddyContext).
+  //    Only reached once any quiz question on the page has already been
+  //    answered — BookReader withholds its explanation from context until
+  //    then, so this mode is never handed something it could spoil.
   //  - 'idle': nothing to react to, e.g. clicked from the dashboard. Static
   //    message, no LLM call needed.
   function resolveMode() {
     if (context?.screen === 'task' && context?.taskId) return 'guide'
+    if (context?.screen === 'chapter' && context?.quizPending) return 'guide'
     if (context?.screen === 'chapter') return 'chapter'
     return 'idle'
   }
