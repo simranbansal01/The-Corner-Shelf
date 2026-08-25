@@ -76,6 +76,7 @@ let audioCtx, footstepNoiseBuffer;
 let stepTimer = 0;
 let soundEnabled = true;
 let currentBuildWall = null;
+let currentBuildRow = null;
 let allShelfBooks = [];
 let lessonBooks = [];
 // The single book currently popped out of the shelf (only one can be open
@@ -742,10 +743,16 @@ function buildShopProps() {
 // already procedurally scattered there by fillShelfSegment/makeBook),
 // swaps in a title-cover texture, and wires up the glow + click state that
 // updateLessonBooks/tryClickBook read every frame.
+// Shelves are 4 rows tall (row 0 = bottom, row 3 = top, see buildBookshelf's
+// shelfCount); lesson books should only ever land on the two middle rows so
+// they're at a comfortable eye/reach height instead of on the floor-level or
+// top-of-reach rows.
+const LESSON_BOOK_ROWS = [1, 2];
+
 function assignLessonBooks() {
   const byWall = { back: [], left: [], right: [] };
   allShelfBooks.forEach(entry => {
-    if (byWall[entry.wall]) byWall[entry.wall].push(entry);
+    if (byWall[entry.wall] && LESSON_BOOK_ROWS.includes(entry.row)) byWall[entry.wall].push(entry);
   });
 
   const countByWall = {};
@@ -1641,7 +1648,7 @@ function makeBook(width, height, depth, colorHex) {
   mesh.receiveShadow = true;
   addOutline(mesh, 0x2a1c12, 0.4);
   if (currentBuildWall) {
-    allShelfBooks.push({ mesh, wall: currentBuildWall, colorHex });
+    allShelfBooks.push({ mesh, wall: currentBuildWall, row: currentBuildRow, colorHex });
   }
   return mesh;
 }
@@ -1874,6 +1881,7 @@ function buildBookshelf(wallWidth, wallHeight, catRow, lanternRow) {
     group.add(board);
     if (i < shelfCount) {
       const gapCenter = -innerWidth / 2 + segWidth / 2;
+      currentBuildRow = i;
       if (catRow === i) {
         fillShelfRow(group, innerWidth, y + 0.05, shelfDepth, { segments, gap: { center: 0, width: 0.26 } });
       } else if (lanternRow === i) {
@@ -1881,6 +1889,7 @@ function buildBookshelf(wallWidth, wallHeight, catRow, lanternRow) {
       } else {
         fillShelfRow(group, innerWidth, y + 0.05, shelfDepth, { segments });
       }
+      currentBuildRow = null;
 
       const rowH = shelfGap - 0.05;
       for (let s = 1; s < segments; s++) {
