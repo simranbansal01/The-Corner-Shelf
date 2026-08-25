@@ -142,6 +142,11 @@ export default function BuddyPanel({ context }) {
           userJudgmentText: context?.userJudgmentText,
           askedQuestion: text,
           goal: profile?.onboarding_goal,
+          // Quiz options are discrete answers, not a passage to reread: naming
+          // even one of them (right or wrong) as "worth a look" functions as a
+          // reveal, unlike pointing at a word in a scenario. The server adds a
+          // stronger instruction for this shape, see quizPending in BookReader.
+          isQuiz: !!context?.quizPending,
         }
       : {
           mode: 'explain',
