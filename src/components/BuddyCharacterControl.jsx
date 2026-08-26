@@ -2,25 +2,25 @@ import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { logEvent, logError } from '../lib/events'
+import { BUDDY_CHARACTERS } from '../lib/buddyCharacters'
 import PetBuddy from './PetBuddy'
-
-const CHARACTER_OPTIONS = [
-  { id: 'niblet', name: 'Niblet', blurb: 'A steady, hard-hat-wearing hamster.' },
-  { id: 'sir-claws-a-lot', name: 'Sir Claws-a-Lot', blurb: 'A pompous, monocled lobster.' },
-  { id: 'glitchy', name: 'Glitchy', blurb: 'A derpy, endlessly wobbly slime.' },
-]
 
 // Which corner-buddy character shows up (profile.buddy_character) —
 // separate from pet_size (PetSizeControl.jsx), which just scales whichever
-// one is picked here.
+// one is picked here. A dropdown picks the character, and one compact
+// preview tile below always shows whichever one is currently selected.
+// Whichever one that is becomes THE buddy: every other screen that renders
+// Niblet/Sir Claws-a-Lot/Glitchy (BuddyPanel, PetSizeControl, the
+// onboarding pick) reads this same profile field.
 export default function BuddyCharacterControl() {
   const { user, profile, refreshProfile } = useAuth()
   const current = profile?.buddy_character || 'niblet'
-  const [saving, setSaving] = useState(null) // id currently being saved, or null
+  const selected = BUDDY_CHARACTERS.find((b) => b.id === current) || BUDDY_CHARACTERS[0]
+  const [saving, setSaving] = useState(false)
 
   async function selectCharacter(id) {
     if (id === current || saving) return
-    setSaving(id)
+    setSaving(true)
     try {
       const { error } = await supabase.from('users').update({ buddy_character: id }).eq('id', user.id)
       if (error) throw error
@@ -30,7 +30,7 @@ export default function BuddyCharacterControl() {
       logError('buddy_character_save_failed', err.message, 'selectCharacter')
       alert('Something went wrong saving that. Please try again.')
     } finally {
-      setSaving(null)
+      setSaving(false)
     }
   }
 
@@ -41,34 +41,38 @@ export default function BuddyCharacterControl() {
           <h3 style={{ margin: 0 }}>Your buddy</h3>
           <p style={{ margin: 0 }}>Pick who shows up in the corner and reacts as you go.</p>
         </div>
+        <select
+          className="buddy-select"
+          aria-label="Choose your buddy"
+          value={current}
+          disabled={saving}
+          onChange={(e) => selectCharacter(e.target.value)}
+        >
+          {BUDDY_CHARACTERS.map((opt) => (
+            <option key={opt.id} value={opt.id}>{opt.name}</option>
+          ))}
+        </select>
       </div>
-      <div className="pets-list">
-        {CHARACTER_OPTIONS.map((opt) => {
-          const isSelected = opt.id === current
-          return (
-            <div className="pets-list-row" key={opt.id}>
-              <span className="pets-list-icon-bg">
-                <PetBuddy character={opt.id} state="idle" position="inline" size={38} />
-              </span>
-              <div className="pets-list-text">
-                <h3 style={{ margin: 0 }}>{opt.name}</h3>
-                <p style={{ margin: 0 }}>{opt.blurb}</p>
-              </div>
-              {isSelected ? (
-                <span className="pets-list-selected">Selected</span>
-              ) : (
-                <button
-                  type="button"
-                  className="pets-list-select-btn"
-                  onClick={() => selectCharacter(opt.id)}
-                  disabled={saving !== null}
-                >
-                  {saving === opt.id ? 'Saving…' : 'Select'}
-                </button>
-              )}
-            </div>
-          )
-        })}
+
+      <div className="buddy-preview" style={{ '--buddy-accent': selected.accent }}>
+        <div className="buddy-preview-header">
+          <p className="buddy-preview-name">{selected.name}</p>
+          <p className="buddy-preview-epithet">{selected.epithet}</p>
+        </div>
+        <div className="buddy-preview-body">
+          {/* Fixed-size slot: idle-animation frames are individually cropped
+              images with slightly different aspect ratios, and PetBuddy's
+              <img> is height:auto, so an unconstrained sprite would resize
+              this tile every frame tick (see the earlier fix for the same
+              issue on the old per-character cards). */}
+          <div className="buddy-preview-sprite">
+            <PetBuddy character={selected.id} state="idle" position="inline" size={44} />
+          </div>
+          <div className="buddy-preview-text">
+            <p className="buddy-preview-quote">&ldquo;{selected.quote}&rdquo;</p>
+            <p className="buddy-preview-blurb">{selected.blurb}</p>
+          </div>
+        </div>
       </div>
     </>
   )

@@ -71,6 +71,23 @@ export default function BookReader({ stageId, coverImage, onClose, onBuddyContex
     }
     if (page?.type === 'chapter-quiz') {
       const q = page.question
+      // Not answered yet: route through the same no-verdict GUIDING rules
+      // as a practice task (see BuddyPanel's resolveMode), so Buddy can
+      // nudge without ever being handed the explanation that gives away
+      // which option is correct. Only once quizAnswers has this question
+      // (they've submitted and already seen the explanation on screen) does
+      // this become a real EXPLAINING question, in the branch below.
+      if (quizAnswers[q.id] === undefined) {
+        onBuddyContextChange({
+          screen: 'chapter',
+          stageId,
+          chapterTitle: page.chapter.title,
+          quizPending: true,
+          scenario: `Quiz question: ${q.text}`,
+          aiOutput: `Options: ${q.options.map((o) => o.text).join(' | ')}`,
+        })
+        return
+      }
       const questionContext = [
         `Quiz question currently on screen: ${q.text}`,
         `Options: ${q.options.map((o) => o.text).join(' | ')}`,
@@ -94,7 +111,7 @@ export default function BookReader({ stageId, coverImage, onClose, onBuddyContex
     }
     // task/case-study pages report their own richer context via their own onContextChange
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, stageId, onBuddyContextChange])
+  }, [page, stageId, onBuddyContextChange, quizAnswers])
 
   function goNext() {
     setPageIndex((i) => Math.min(i + 1, pages.length - 1))
@@ -158,6 +175,8 @@ export default function BookReader({ stageId, coverImage, onClose, onBuddyContex
       )}
       {page.type === 'chapter-score' && (
         <ChapterScorePage
+          key={page.chapterNumber}
+          stageId={stageId}
           chapter={page.chapter}
           quizAnswers={quizAnswers}
           onRetake={() => handleRetake(page.chapter, page.firstQuizPageIndex)}

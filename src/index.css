@@ -596,17 +596,65 @@ p { line-height: 1.75; margin: 0 0 var(--space-2) 0; color: var(--color-text); }
 .share-tile:hover { border-color: var(--color-primary); transform: translateY(-2px); }
 .share-tile-icon { font-size: 22px; }
 
-.learning-path-tier { border: 1px solid var(--color-border); border-radius: var(--radius); padding: var(--space-2) var(--space-3); margin-bottom: var(--space-2); }
-.learning-path-tier-header { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-2); }
-.learning-path-tier-title { font-weight: 800; margin: 0; }
-.learning-path-tier-subtitle { font-size: 13px; color: var(--color-text-muted); margin: 2px 0 0 0; }
-.learning-path-tier-badge { font-size: 13px; font-weight: 700; color: var(--color-primary-dark); white-space: nowrap; }
-.learning-path-tier-locked { color: var(--color-text-muted); }
+/* Learning Path — one continuous trail: a diamond waypoint per tier, then a
+   numbered stop per stage, all threaded on a single line (.path-trail::before).
+   Locked tiers still render their stops (dimmed, .path-stop-locked) instead of
+   collapsing to a bare badge, so the path ahead stays visible, same as the
+   shelf's own locked walls. Waypoint and stop markers share the same 36px
+   column width so their centers land on the line at the same x (18px),
+   whatever their shape. */
+.path-trail { list-style: none; margin: 0; padding: 0; position: relative; }
+.path-trail::before {
+  content: '';
+  position: absolute;
+  left: 17px;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  background: var(--color-border);
+}
+.path-tier-group { margin-bottom: var(--space-4); }
+.path-tier-group:last-child { margin-bottom: 0; }
+
+.path-waypoint { display: flex; gap: var(--space-2); align-items: flex-start; position: relative; z-index: 1; margin-bottom: var(--space-2); }
+.path-waypoint-marker {
+  flex: none; width: 36px; height: 36px; margin-top: 2px;
+  border-radius: 9px;
+  transform: rotate(45deg);
+  background: var(--color-primary);
+  box-shadow: 0 0 0 4px var(--color-surface);
+}
+.path-marker-locked { background: var(--color-disabled); }
+.path-waypoint-card { flex: 1; padding-top: 4px; min-width: 0; }
+.path-waypoint-kicker { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-primary-dark); margin: 0 0 2px; }
+.path-waypoint-title { font-size: 1.05rem; font-weight: 800; margin: 0 0 2px; }
+.path-waypoint-subtitle { font-size: 13px; color: var(--color-text-muted); margin: 0 0 10px; }
+.path-locked-badge {
+  display: inline-block; font-size: 12px; font-weight: 700; color: var(--color-text-muted);
+  background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 999px; padding: 3px 10px;
+}
 .progress-bar-track { width: 100%; height: 8px; border-radius: 4px; background: var(--color-bg); border: 1px solid var(--color-border); margin-top: var(--space-2); overflow: hidden; }
 .progress-bar-fill { height: 100%; background: var(--color-primary); border-radius: 4px; }
-.learning-path-stage-list { list-style: none; padding: 0; margin: var(--space-2) 0 0 0; font-size: 14px; }
-.learning-path-stage-row { display: flex; justify-content: space-between; padding: 6px 0; color: var(--color-text-muted); }
-.learning-path-stage-complete { color: var(--color-primary-dark); font-weight: 700; }
+
+.path-stops { list-style: none; margin: 0; padding: 0; }
+.path-stop { display: flex; gap: var(--space-2); align-items: flex-start; position: relative; z-index: 1; padding: 6px 0; }
+.path-stop-locked { opacity: 0.55; }
+.path-stop-marker {
+  flex: none; width: 36px; height: 36px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700;
+  background: var(--color-surface);
+  border: 2px solid var(--color-primary);
+  color: var(--color-primary-dark);
+}
+.path-stop-locked .path-stop-marker { background: var(--color-bg); border-color: var(--color-disabled); color: var(--color-text-muted); }
+.path-stop-complete { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
+.path-stop-card { flex: 1; padding-top: 6px; min-width: 0; display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-2); }
+.path-stop-text { min-width: 0; }
+.path-stop-title { font-weight: 700; margin: 0; }
+.path-stop-desc { font-size: 13px; color: var(--color-text-muted); margin: 3px 0 0; }
+.path-stop-status { font-size: 13px; font-weight: 700; color: var(--color-text-muted); white-space: nowrap; }
+.path-stop-status-complete { color: var(--color-primary-dark); }
 
 /* Buddy — Niblet, draggable anywhere, no circular frame/backdrop around it
    (see PetBuddy.jsx) — just the character itself, floating free. */
@@ -810,6 +858,43 @@ p { line-height: 1.75; margin: 0 0 var(--space-2) 0; color: var(--color-text); }
   flex-shrink: 0;
   padding: 8px 4px;
 }
+
+/* Buddy character picker (Settings) — a dropdown (in the section's own
+   .settings-row, next to the title) picks the character; one compact
+   preview tile below shows whichever one is currently selected: a colored
+   header band (that character's own accent, via the inline --buddy-accent
+   custom property) with name + epithet, then a single row with the sprite,
+   an in-character quote, and a short personality blurb. */
+.buddy-select {
+  font-family: inherit; font-size: 14px; font-weight: 700;
+  padding: 8px 12px; border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text);
+  cursor: pointer; flex-shrink: 0;
+}
+.buddy-select:disabled { opacity: 0.6; cursor: default; }
+
+.buddy-preview {
+  display: flex; flex-direction: column;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  overflow: hidden;
+}
+.buddy-preview-header { background: var(--buddy-accent); padding: 6px 12px; text-align: center; }
+.buddy-preview-name { color: #fff; font-weight: 800; font-size: 0.92rem; margin: 0; }
+.buddy-preview-epithet {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.85); margin: 1px 0 0;
+}
+.buddy-preview-body { display: flex; align-items: center; gap: var(--space-2); padding: 10px 14px; }
+/* Fixed-size slot around PetBuddy: idle-animation frames are individually
+   cropped images with slightly different intrinsic aspect ratios, and
+   PetBuddy's <img> is height:auto, so an unconstrained sprite resizes this
+   tile every frame tick. */
+.buddy-preview-sprite { flex: none; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; }
+.buddy-preview-text { min-width: 0; }
+.buddy-preview-quote { font-style: italic; color: var(--color-text-muted); margin: 0 0 3px; font-size: 0.82rem; }
+.buddy-preview-blurb { font-size: 12px; color: var(--color-text-muted); margin: 0; }
 
 .pets-appearance-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-2); }
 
@@ -1310,6 +1395,50 @@ p { line-height: 1.75; margin: 0 0 var(--space-2) 0; color: var(--color-text); }
   padding-top: 0.1rem;
 }
 
+/* Onboarding "pick your buddy" step — one box per character: a colored
+   header band (that character's own accent, via the inline --buddy-accent
+   custom property) with name + epithet, then a dark card body (matching
+   the rest of this shop's panels) with sprite, quote, and blurb. */
+.corner-shelf .buddy-pick-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.7rem;
+  margin-top: 0.9rem;
+}
+.corner-shelf .buddy-pick-card {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--shelf-panel-edge);
+  border-radius: 6px;
+  overflow: hidden;
+  color: var(--shelf-ink);
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.corner-shelf .buddy-pick-card:hover { border-color: var(--buddy-accent); box-shadow: 0 0 0 1px var(--buddy-accent); }
+.corner-shelf .buddy-pick-header { background: var(--buddy-accent); padding: 0.5rem 0.5rem 0.4rem; }
+.corner-shelf .buddy-pick-name { display: block; color: #fff; font-weight: 700; font-size: 0.86rem; }
+.corner-shelf .buddy-pick-epithet {
+  display: block; font-size: 0.6rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.85); margin-top: 0.1rem;
+}
+.corner-shelf .buddy-pick-body {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: 0.15rem; padding: 0.7rem 0.5rem 0.8rem;
+}
+/* See the matching .buddy-preview-sprite comment in the Settings picker
+   rules above — keeps idle-animation frame height changes from reflowing
+   this card. */
+.corner-shelf .buddy-pick-sprite { height: 64px; display: flex; align-items: center; justify-content: center; }
+.corner-shelf .buddy-pick-quote { display: block; font-style: italic; font-size: 0.74rem; color: var(--shelf-muted); margin-top: 0.4rem; }
+.corner-shelf .buddy-pick-blurb { display: block; font-size: 0.7rem; line-height: 1.4; color: var(--shelf-muted); margin-top: 0.3rem; }
+@media (max-width: 640px) {
+  .corner-shelf .buddy-pick-grid { grid-template-columns: 1fr; }
+}
+
 /* Book-page look for Task/Learn screens, reached by picking up a book in
    the Corner Shelf scene. Task.jsx/Learn.jsx style themselves entirely
    through the --color-* custom properties (day/night theme), so pinning
@@ -1550,6 +1679,18 @@ p { line-height: 1.75; margin: 0 0 var(--space-2) 0; color: var(--color-text); }
 .chapter-score { font-size: 2.2rem; font-weight: 700; color: #4c8067; margin: 0.6rem 0 0.3rem; }
 .chapter-score-low { color: #a9714f; }
 .chapter-score-caption { font-size: 0.9rem; color: #7a6248; margin: 0 0 1.2rem; }
+
+/* Chapter feedback prompt, shown alongside the scorecard once every
+   question in the chapter is answered. */
+.chapter-feedback { margin-top: 1.4rem; padding-top: 1.2rem; border-top: 1px solid #e6dcc4; }
+.chapter-feedback-label { margin: 0 0 0.5rem; font-size: 0.86rem; font-weight: 600; color: #3a2a1c; }
+.chapter-feedback-stars { display: flex; gap: 0.3rem; margin-bottom: 0.7rem; }
+.chapter-feedback-star {
+  background: none; border: none; padding: 0; cursor: pointer;
+  font-size: 1.5rem; line-height: 1; color: #d8cba8;
+}
+.chapter-feedback-star.is-filled { color: #c99a3f; }
+.chapter-feedback-star:hover { color: #c99a3f; }
 
 /* Case study (closing page) */
 .case-study-prompt { margin: 0 0 1rem; font-size: 0.96rem; line-height: 1.65; color: #3a2a1c; }
