@@ -854,47 +854,42 @@ p { line-height: 1.75; margin: 0 0 var(--space-2) 0; color: var(--color-text); }
   padding: 8px 4px;
 }
 
-/* Buddy character picker (Settings) — one box per character: a colored
-   header band (that character's own accent, set via the inline
-   --buddy-accent custom property) with name + epithet, then a body with
-   sprite, in-character quote, and personality blurb. Single column, since
-   this modal is a fixed ~560px width (see .shop-panel-card), not enough
-   room for a 3-up grid without cramping the copy. */
-.buddy-card-grid { display: flex; flex-direction: column; gap: var(--space-3); margin: var(--space-2) 0; }
-.buddy-card {
+/* Buddy character picker (Settings) — a dropdown (in the section's own
+   .settings-row, next to the title) picks the character; one compact
+   preview tile below shows whichever one is currently selected: a colored
+   header band (that character's own accent, via the inline --buddy-accent
+   custom property) with name + epithet, then a single row with the sprite,
+   an in-character quote, and a short personality blurb. */
+.buddy-select {
+  font-family: inherit; font-size: 14px; font-weight: 700;
+  padding: 8px 12px; border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text);
+  cursor: pointer; flex-shrink: 0;
+}
+.buddy-select:disabled { opacity: 0.6; cursor: default; }
+
+.buddy-preview {
   display: flex; flex-direction: column;
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   background: var(--color-surface);
   overflow: hidden;
 }
-.buddy-card-selected { box-shadow: 0 0 0 2px var(--buddy-accent); }
-.buddy-card-header { background: var(--buddy-accent); padding: 10px 14px; text-align: center; }
-.buddy-card-name { color: #fff; font-weight: 800; font-size: 1.05rem; margin: 0; }
-.buddy-card-epithet {
-  font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.85); margin: 2px 0 0;
+.buddy-preview-header { background: var(--buddy-accent); padding: 6px 12px; text-align: center; }
+.buddy-preview-name { color: #fff; font-weight: 800; font-size: 0.92rem; margin: 0; }
+.buddy-preview-epithet {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.85); margin: 1px 0 0;
 }
-.buddy-card-body {
-  display: flex; flex-direction: column; align-items: center; text-align: center;
-  padding: var(--space-3) var(--space-3) var(--space-2);
-}
-/* Fixed slot around PetBuddy: idle-animation frames are individually
-   cropped images with slightly different intrinsic heights, and PetBuddy's
-   <img> is height:auto, so its rendered height changes every frame tick.
-   Centering it in a fixed-height box (rather than depending on PetBuddy's
-   own auto height) keeps that from reflowing the card. */
-.buddy-card-sprite { height: 64px; display: flex; align-items: center; justify-content: center; }
-.buddy-card-quote { font-style: italic; color: var(--color-text-muted); margin: 10px 0 0; font-size: 0.9rem; }
-.buddy-card-blurb { font-size: 13px; color: var(--color-text-muted); margin: 6px 0 12px; max-width: 42ch; }
-.buddy-card-select-btn {
-  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 999px;
-  padding: 8px 20px; font-weight: 700; font-size: 14px; font-family: inherit; cursor: pointer;
-  color: var(--color-text);
-}
-.buddy-card-select-btn:hover { border-color: var(--buddy-accent); color: var(--buddy-accent); }
-.buddy-card-select-btn:disabled { opacity: 0.5; cursor: default; }
-.buddy-card-selected-tag { color: var(--buddy-accent); font-size: 14px; font-weight: 700; }
+.buddy-preview-body { display: flex; align-items: center; gap: var(--space-2); padding: 10px 14px; }
+/* Fixed-size slot around PetBuddy: idle-animation frames are individually
+   cropped images with slightly different intrinsic aspect ratios, and
+   PetBuddy's <img> is height:auto, so an unconstrained sprite resizes this
+   tile every frame tick. */
+.buddy-preview-sprite { flex: none; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; }
+.buddy-preview-text { min-width: 0; }
+.buddy-preview-quote { font-style: italic; color: var(--color-text-muted); margin: 0 0 3px; font-size: 0.82rem; }
+.buddy-preview-blurb { font-size: 12px; color: var(--color-text-muted); margin: 0; }
 
 .pets-appearance-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-2); }
 
@@ -1428,9 +1423,9 @@ p { line-height: 1.75; margin: 0 0 var(--space-2) 0; color: var(--color-text); }
   display: flex; flex-direction: column; align-items: center; text-align: center;
   gap: 0.15rem; padding: 0.7rem 0.5rem 0.8rem;
 }
-/* See the matching .buddy-card-sprite comment in the Settings picker rules
-   above — keeps idle-animation frame height changes from reflowing this
-   card. */
+/* See the matching .buddy-preview-sprite comment in the Settings picker
+   rules above — keeps idle-animation frame height changes from reflowing
+   this card. */
 .corner-shelf .buddy-pick-sprite { height: 64px; display: flex; align-items: center; justify-content: center; }
 .corner-shelf .buddy-pick-quote { display: block; font-style: italic; font-size: 0.74rem; color: var(--shelf-muted); margin-top: 0.4rem; }
 .corner-shelf .buddy-pick-blurb { display: block; font-size: 0.7rem; line-height: 1.4; color: var(--shelf-muted); margin-top: 0.3rem; }
