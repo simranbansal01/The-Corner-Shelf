@@ -1567,6 +1567,18 @@ p { line-height: 1.75; margin: 0 0 var(--space-2) 0; color: var(--color-text); }
 .chapter-score-low { color: #a9714f; }
 .chapter-score-caption { font-size: 0.9rem; color: #7a6248; margin: 0 0 1.2rem; }
 
+/* Chapter feedback prompt, shown alongside the scorecard once every
+   question in the chapter is answered. */
+.chapter-feedback { margin-top: 1.4rem; padding-top: 1.2rem; border-top: 1px solid #e6dcc4; }
+.chapter-feedback-label { margin: 0 0 0.5rem; font-size: 0.86rem; font-weight: 600; color: #3a2a1c; }
+.chapter-feedback-stars { display: flex; gap: 0.3rem; margin-bottom: 0.7rem; }
+.chapter-feedback-star {
+  background: none; border: none; padding: 0; cursor: pointer;
+  font-size: 1.5rem; line-height: 1; color: #d8cba8;
+}
+.chapter-feedback-star.is-filled { color: #c99a3f; }
+.chapter-feedback-star:hover { color: #c99a3f; }
+
 /* Case study (closing page) */
 .case-study-prompt { margin: 0 0 1rem; font-size: 0.96rem; line-height: 1.65; color: #3a2a1c; }
 .case-study-textarea { width: 100%; box-sizing: border-box; }

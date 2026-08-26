@@ -175,6 +175,8 @@ export default function BookReader({ stageId, coverImage, onClose, onBuddyContex
       )}
       {page.type === 'chapter-score' && (
         <ChapterScorePage
+          key={page.chapterNumber}
+          stageId={stageId}
           chapter={page.chapter}
           quizAnswers={quizAnswers}
           onRetake={() => handleRetake(page.chapter, page.firstQuizPageIndex)}
