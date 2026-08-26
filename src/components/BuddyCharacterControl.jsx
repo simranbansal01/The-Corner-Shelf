@@ -43,24 +43,32 @@ export default function BuddyCharacterControl() {
         {BUDDY_CHARACTERS.map((opt) => {
           const isSelected = opt.id === current
           return (
-            <div className={`buddy-card${isSelected ? ' buddy-card-selected' : ''}`} key={opt.id}>
-              <PetBuddy character={opt.id} state="idle" position="inline" size={64} />
-              <p className="buddy-card-name">{opt.name}</p>
-              <p className="buddy-card-epithet">{opt.epithet}</p>
-              <p className="buddy-card-quote">&ldquo;{opt.quote}&rdquo;</p>
-              <p className="buddy-card-blurb">{opt.blurb}</p>
-              {isSelected ? (
-                <span className="buddy-card-selected-tag">Selected</span>
-              ) : (
-                <button
-                  type="button"
-                  className="buddy-card-select-btn"
-                  onClick={() => selectCharacter(opt.id)}
-                  disabled={saving !== null}
-                >
-                  {saving === opt.id ? 'Saving…' : 'Select'}
-                </button>
-              )}
+            <div
+              className={`buddy-card${isSelected ? ' buddy-card-selected' : ''}`}
+              key={opt.id}
+              style={{ '--buddy-accent': opt.accent }}
+            >
+              <div className="buddy-card-header">
+                <p className="buddy-card-name">{opt.name}</p>
+                <p className="buddy-card-epithet">{opt.epithet}</p>
+              </div>
+              <div className="buddy-card-body">
+                <PetBuddy character={opt.id} state="idle" position="inline" size={64} />
+                <p className="buddy-card-quote">&ldquo;{opt.quote}&rdquo;</p>
+                <p className="buddy-card-blurb">{opt.blurb}</p>
+                {isSelected ? (
+                  <span className="buddy-card-selected-tag">Selected</span>
+                ) : (
+                  <button
+                    type="button"
+                    className="buddy-card-select-btn"
+                    onClick={() => selectCharacter(opt.id)}
+                    disabled={saving !== null}
+                  >
+                    {saving === opt.id ? 'Saving…' : 'Select'}
+                  </button>
+                )}
+              </div>
             </div>
           )
         })}

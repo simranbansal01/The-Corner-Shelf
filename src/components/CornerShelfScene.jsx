@@ -226,12 +226,22 @@ export default function CornerShelfScene({
           <p className="shopkeeper-dialogue-line">{onboarding.dialogue}</p>
           <div className="buddy-pick-grid">
             {BUDDY_CHARACTERS.map((b) => (
-              <button key={b.id} type="button" className="buddy-pick-card" onClick={() => onOnboardingPick(b.id)}>
-                <PetBuddy character={b.id} state="idle" position="inline" size={64} />
-                <span className="buddy-pick-name">{b.name}</span>
-                <span className="buddy-pick-epithet">{b.epithet}</span>
-                <span className="buddy-pick-quote">&ldquo;{b.quote}&rdquo;</span>
-                <span className="buddy-pick-blurb">{b.blurb}</span>
+              <button
+                key={b.id}
+                type="button"
+                className="buddy-pick-card"
+                style={{ '--buddy-accent': b.accent }}
+                onClick={() => onOnboardingPick(b.id)}
+              >
+                <div className="buddy-pick-header">
+                  <span className="buddy-pick-name">{b.name}</span>
+                  <span className="buddy-pick-epithet">{b.epithet}</span>
+                </div>
+                <div className="buddy-pick-body">
+                  <PetBuddy character={b.id} state="idle" position="inline" size={64} />
+                  <span className="buddy-pick-quote">&ldquo;{b.quote}&rdquo;</span>
+                  <span className="buddy-pick-blurb">{b.blurb}</span>
+                </div>
               </button>
             ))}
           </div>
