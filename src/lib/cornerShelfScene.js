@@ -106,8 +106,26 @@ const arrowTargetWorld = new THREE.Vector3();
 const arrowCamPos = new THREE.Vector3();
 const arrowCamDir = new THREE.Vector3();
 
+// Plain solid-color calls (the overwhelming majority — book spines, shelf
+// frames, walls, decorative props) get a shared material per color instead
+// of a brand-new MeshToonMaterial every call: with only ~15 colors in
+// SPINE_COLORS reused across hundreds of procedurally-generated books,
+// uncached calls meant hundreds of pixel-identical materials, each forcing
+// its own GPU state change per draw. Nothing in this file mutates a toonMat
+// material's color/opacity after creation (only replaces the reference
+// outright, e.g. lesson-book cover materials), so sharing is safe. Calls
+// with `extra` (a per-instance canvas texture map, e.g. book covers/labels)
+// stay uncached since those are genuinely unique per mesh.
+const toonMatCache = new Map();
 function toonMat(color, extra) {
-  return new THREE.MeshToonMaterial(Object.assign({ color, gradientMap: TOON_GRADIENT }, extra || {}));
+  if (!extra) {
+    const cached = toonMatCache.get(color);
+    if (cached) return cached;
+    const mat = new THREE.MeshToonMaterial({ color, gradientMap: TOON_GRADIENT });
+    toonMatCache.set(color, mat);
+    return mat;
+  }
+  return new THREE.MeshToonMaterial(Object.assign({ color, gradientMap: TOON_GRADIENT }, extra));
 }
 
 function addOutline(mesh, color, opacity) {
@@ -2694,6 +2712,13 @@ function dispose() {
   });
   renderer.dispose();
   renderer.domElement.remove();
+  // toonMatCache is module-level (shared materials persist across the
+  // scene's own lifetime for the GPU-state-change win), but its entries
+  // just got disposed above along with everything else in the scene graph
+  // — clear it so the next createCornerShelfScene() (route remount, or
+  // React StrictMode's dev-mode double-invoke) allocates fresh materials
+  // instead of handing out already-disposed ones.
+  toonMatCache.clear();
 }
 
 function setSceneActive(active) {
