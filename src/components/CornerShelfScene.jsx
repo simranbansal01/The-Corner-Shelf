@@ -41,6 +41,12 @@ export default function CornerShelfScene({
 
   const [textValue, setTextValue] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
+  // Computed once (matchMedia won't change mid-session for the vast
+  // majority of visits) — swaps the keyboard-hint copy below for
+  // touch-appropriate wording. The actual joystick behavior lives in
+  // cornerShelfScene.js's own matching isTouch check; this one only
+  // decides what the DOM shell here renders as static hint text.
+  const [isTouch] = useState(() => window.matchMedia('(pointer: coarse)').matches)
 
   function openPanelAndCollapse(panelType) {
     onOpenPanel?.(panelType)
@@ -136,8 +142,25 @@ export default function CornerShelfScene({
         </div>
       </div>
 
-      <div id="hud">
-        <strong>WASD</strong>&nbsp;move &nbsp;·&nbsp; <strong>drag</strong>&nbsp;to look &nbsp;·&nbsp; <strong>click ground</strong>&nbsp;to walk there &nbsp;·&nbsp; <strong>esc</strong>&nbsp;pause
+      {isTouch ? (
+        <div id="hud">
+          <strong>joystick</strong>&nbsp;move &nbsp;·&nbsp; <strong>drag</strong>&nbsp;to look &nbsp;·&nbsp; <strong>tap ground</strong>&nbsp;to walk there
+        </div>
+      ) : (
+        <div id="hud">
+          <strong>WASD</strong>&nbsp;move &nbsp;·&nbsp; <strong>drag</strong>&nbsp;to look &nbsp;·&nbsp; <strong>click ground</strong>&nbsp;to walk there &nbsp;·&nbsp; <strong>esc</strong>&nbsp;pause
+        </div>
+      )}
+
+      {/* Touch's stand-in for WASD — hidden by default (no 'visible'
+          class), shown/hidden every frame by cornerShelfScene.js's
+          updateMovement once exploring is unlocked, only on touch devices.
+          Always rendered (not gated on isTouch here) so its id is always
+          present for the scene script's own touch check to find it,
+          matching this file's usual "fixed DOM shell, matched by id"
+          convention. */}
+      <div id="mobile-joystick" className="mobile-joystick">
+        <div className="mobile-joystick-stick" />
       </div>
 
       <div id="book-hint" className="book-hint">✨ Click a glowing book to pick it up</div>
@@ -157,7 +180,7 @@ export default function CornerShelfScene({
         <div className="card">
           <p className="eyebrow">Paused</p>
           <h1>Taking a breather</h1>
-          <p className="tagline">Click anywhere to step back into the shelves.</p>
+          <p className="tagline">{isTouch ? 'Tap anywhere' : 'Click anywhere'} to step back into the shelves.</p>
         </div>
       </div>
 
@@ -171,10 +194,19 @@ export default function CornerShelfScene({
               : 'Walk the shelves and pick up a glowing book to start that stage.'}
           </p>
           <div className="controls-row">
-            <span className="key">WASD to move</span>
-            <span className="key">click + drag to look</span>
+            {isTouch ? (
+              <>
+                <span className="key">joystick to move</span>
+                <span className="key">drag to look</span>
+              </>
+            ) : (
+              <>
+                <span className="key">WASD to move</span>
+                <span className="key">click + drag to look</span>
+              </>
+            )}
           </div>
-          <div className="enter-prompt">Click to step inside</div>
+          <div className="enter-prompt">{isTouch ? 'Tap to step inside' : 'Click to step inside'}</div>
         </div>
       </div>
 

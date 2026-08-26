@@ -68,6 +68,12 @@ let velocity = new THREE.Vector3();
 let move = { forward: false, back: false, left: false, right: false };
 let yaw = 0, pitch = -0.18;
 let locked = false;
+// Set once in setupControls() (matchMedia is cheap, no need to keep it
+// live-updated for a mid-session pointer-type change). Read by
+// updateLessonBooks (book-hint wording) as well as setupControls itself
+// (touch-action, the joystick), hence module-level rather than local to
+// either function.
+let isTouch = false;
 let hasMovedOnce = false;
 let TOON_GRADIENT;
 let GLOW_SPRITE_TEX;
@@ -101,6 +107,14 @@ const BEACON_DURATION = 14;
 // and reads as a simple "this way" hint rather than a magical light.
 let tourArrowEl = null;
 let tourArrowShapeEl = null;
+// Mobile movement joystick — refs assigned in setupControls(), visibility
+// synced every frame in updateMovement() (same cross-function pattern as
+// tourArrowEl above), pointerId tracked here so updateMovement can force a
+// clean release if the joystick gets hidden mid-drag (onboarding
+// interrupting a walk, panel opening, etc.).
+let joystickEl = null;
+let joystickStickEl = null;
+let joystickPointerId = null;
 let arrowActive = false;
 const arrowTargetWorld = new THREE.Vector3();
 const arrowCamPos = new THREE.Vector3();
@@ -2337,7 +2351,19 @@ function setupControls() {
   tourArrowShapeEl = tourArrowEl?.querySelector('.tour-arrow-shape') || null;
   const canvas = renderer.domElement;
   const signal = controller.signal;
+  isTouch = window.matchMedia('(pointer: coarse)').matches;
+  // Without this, touch-dragging the canvas to look around also triggers
+  // the browser's own scroll/pull-to-refresh/pinch gestures, fighting the
+  // yaw/pitch update below.
+  canvas.style.touchAction = 'none';
   let dragging = false;
+  // Pointer Events unify mouse/touch/pen through one set of listeners, but
+  // multiple pointers can be down at once on a touchscreen (one thumb
+  // dragging to look, the other on the joystick below) — dragPointerId
+  // pins the look-drag to whichever pointer started it, so a second
+  // finger's move/up events (bubbled to these same window listeners) don't
+  // get misread as look-drag input.
+  let dragPointerId = null;
   let lastX = 0, lastY = 0;
   let downX = 0, downY = 0, downTime = 0;
   const raycaster = new THREE.Raycaster();
@@ -2375,9 +2401,10 @@ function setupControls() {
     if (soundEnabled) playFootstep();
   }, { signal });
 
-  canvas.addEventListener('mousedown', (e) => {
+  canvas.addEventListener('pointerdown', (e) => {
     if (!locked) return;
     dragging = true;
+    dragPointerId = e.pointerId;
     lastX = e.clientX;
     lastY = e.clientY;
     downX = e.clientX;
@@ -2385,8 +2412,8 @@ function setupControls() {
     downTime = performance.now();
     canvas.classList.add('grabbing');
   }, { signal });
-  window.addEventListener('mousemove', (e) => {
-    if (!locked || !dragging) return;
+  window.addEventListener('pointermove', (e) => {
+    if (!locked || !dragging || e.pointerId !== dragPointerId) return;
     const dx = e.clientX - lastX;
     const dy = e.clientY - lastY;
     lastX = e.clientX;
@@ -2395,7 +2422,8 @@ function setupControls() {
     pitch -= dy * 0.0032;
     pitch = Math.max(PITCH_MIN, Math.min(PITCH_MAX, pitch));
   }, { signal });
-  window.addEventListener('mouseup', (e) => {
+  window.addEventListener('pointerup', (e) => {
+    if (e.pointerId !== dragPointerId) return;
     if (locked && sceneActive) {
       const moved = Math.hypot(e.clientX - downX, e.clientY - downY);
       const elapsed = performance.now() - downTime;
@@ -2408,8 +2436,76 @@ function setupControls() {
       }
     }
     dragging = false;
+    dragPointerId = null;
     canvas.classList.remove('grabbing');
   }, { signal });
+  // Fires instead of pointerup when the OS interrupts the touch (a
+  // notification pull-down, a system gesture) — without this, dragging
+  // would stay stuck true (harmless, but grabbing cursor / next click's
+  // stale lastX/Y are worth clearing cleanly).
+  window.addEventListener('pointercancel', (e) => {
+    if (e.pointerId !== dragPointerId) return;
+    dragging = false;
+    dragPointerId = null;
+    canvas.classList.remove('grabbing');
+  }, { signal });
+
+  // Touch's stand-in for WASD: a fixed on-screen base the thumb drags
+  // within, driving the same move.forward/back/left/right booleans keyed
+  // presses set, so updateMovement doesn't need to know or care which
+  // input drove it. Visibility (shown only once exploring is unlocked) is
+  // handled per-frame in updateMovement, not here.
+  joystickEl = document.getElementById('mobile-joystick');
+  joystickStickEl = joystickEl?.querySelector('.mobile-joystick-stick') || null;
+  const JOYSTICK_RADIUS = 40;
+  const JOYSTICK_DEADZONE = 10;
+
+  function updateJoystickVector(clientX, clientY) {
+    const rect = joystickEl.getBoundingClientRect();
+    const dx = clientX - (rect.left + rect.width / 2);
+    const dy = clientY - (rect.top + rect.height / 2);
+    const dist = Math.hypot(dx, dy);
+    const clamped = Math.min(dist, JOYSTICK_RADIUS);
+    const angle = Math.atan2(dy, dx);
+    if (joystickStickEl) {
+      joystickStickEl.style.transform = `translate(${Math.cos(angle) * clamped}px, ${Math.sin(angle) * clamped}px)`;
+    }
+    if (dist < JOYSTICK_DEADZONE) {
+      move.forward = move.back = move.left = move.right = false;
+      return;
+    }
+    move.forward = dy < -JOYSTICK_DEADZONE * 0.5;
+    move.back = dy > JOYSTICK_DEADZONE * 0.5;
+    move.right = dx > JOYSTICK_DEADZONE * 0.5;
+    move.left = dx < -JOYSTICK_DEADZONE * 0.5;
+  }
+
+  function releaseJoystick() {
+    joystickPointerId = null;
+    move.forward = move.back = move.left = move.right = false;
+    if (joystickStickEl) joystickStickEl.style.transform = 'translate(0px, 0px)';
+  }
+
+  if (joystickEl) {
+    joystickEl.addEventListener('pointerdown', (e) => {
+      if (!locked || !explorationUnlocked) return;
+      joystickPointerId = e.pointerId;
+      joystickEl.setPointerCapture(e.pointerId);
+      updateJoystickVector(e.clientX, e.clientY);
+    }, { signal });
+    joystickEl.addEventListener('pointermove', (e) => {
+      if (e.pointerId !== joystickPointerId) return;
+      updateJoystickVector(e.clientX, e.clientY);
+    }, { signal });
+    joystickEl.addEventListener('pointerup', (e) => {
+      if (e.pointerId !== joystickPointerId) return;
+      releaseJoystick();
+    }, { signal });
+    joystickEl.addEventListener('pointercancel', (e) => {
+      if (e.pointerId !== joystickPointerId) return;
+      releaseJoystick();
+    }, { signal });
+  }
 
   function tryClickOnboarding(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
@@ -2565,6 +2661,16 @@ function updateMovement(dt) {
   camera.rotation.x = pitch;
   camera.position.y = EYE_HEIGHT;
 
+  if (joystickEl) {
+    const showJoystick = isTouch && locked && explorationUnlocked && sceneActive;
+    joystickEl.classList.toggle('visible', showJoystick);
+    if (!showJoystick && joystickPointerId !== null) {
+      joystickPointerId = null;
+      move.forward = move.back = move.left = move.right = false;
+      if (joystickStickEl) joystickStickEl.style.transform = 'translate(0px, 0px)';
+    }
+  }
+
   if (!explorationUnlocked || !sceneActive) return;
 
   const forwardVec = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
@@ -2637,7 +2743,7 @@ function updateLessonBooks(dt) {
     hint.classList.remove('show');
   } else if (hint) {
     if (nearAny) {
-      hint.textContent = '✨ Click a glowing book to pick it up';
+      hint.textContent = isTouch ? '✨ Tap a glowing book to pick it up' : '✨ Click a glowing book to pick it up';
       hint.classList.add('show');
     } else if (nearLockedAny) {
       hint.textContent = '🔒 Finish the previous tier to unlock these books';
