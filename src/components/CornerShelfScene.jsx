@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createCornerShelfScene } from '../lib/cornerShelfScene'
+import { BUDDY_CHARACTERS } from '../lib/buddyCharacters'
+import PetBuddy from './PetBuddy'
 
 // Host for the ported "Corner Shelf" walkable 3D scene. Renders the fixed
 // DOM shell the scene script expects (canvas-wrap/hud/overlays, matched by
@@ -212,7 +214,31 @@ export default function CornerShelfScene({
         </div>
       )}
 
-      {onboarding?.active && onboarding.phase !== 'placement' && (
+      {onboarding?.active && onboarding.phase === 'pet' && (
+        // Real DOM box per buddy (sprite, name, epithet, in-character quote,
+        // personality blurb) rather than relying only on the tiny 3D
+        // figurines' click targets to carry that much copy — same reasoning
+        // as the placement quiz's DOM card above. The 3D figurines (see
+        // cornerShelfScene.js) still work too, both call onOnboardingPick
+        // with the same character id, so whichever one gets clicked becomes
+        // profile.buddy_character exactly the same way.
+        <div className="shopkeeper-dialogue shopkeeper-dialogue-wide buddy-pick">
+          <p className="shopkeeper-dialogue-line">{onboarding.dialogue}</p>
+          <div className="buddy-pick-grid">
+            {BUDDY_CHARACTERS.map((b) => (
+              <button key={b.id} type="button" className="buddy-pick-card" onClick={() => onOnboardingPick(b.id)}>
+                <PetBuddy character={b.id} state="idle" position="inline" size={64} />
+                <span className="buddy-pick-name">{b.name}</span>
+                <span className="buddy-pick-epithet">{b.epithet}</span>
+                <span className="buddy-pick-quote">&ldquo;{b.quote}&rdquo;</span>
+                <span className="buddy-pick-blurb">{b.blurb}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {onboarding?.active && onboarding.phase !== 'placement' && onboarding.phase !== 'pet' && (
         <div className="shopkeeper-dialogue">
           <p className="shopkeeper-dialogue-line">{onboarding.dialogue}</p>
 

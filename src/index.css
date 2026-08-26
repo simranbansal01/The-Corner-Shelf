@@ -854,6 +854,35 @@ p { line-height: 1.75; margin: 0 0 var(--space-2) 0; color: var(--color-text); }
   padding: 8px 4px;
 }
 
+/* Buddy character picker (Settings) — one box per character: sprite, name,
+   epithet, an in-character quote, and a short personality blurb. Single
+   column, since this modal is a fixed ~560px width (see .shop-panel-card),
+   not enough room for a 3-up grid without cramping the copy. */
+.buddy-card-grid { display: flex; flex-direction: column; gap: var(--space-3); margin: var(--space-2) 0; }
+.buddy-card {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  padding: var(--space-3) var(--space-3) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+.buddy-card-selected { border-color: var(--color-primary); box-shadow: 0 0 0 1px var(--color-primary); }
+.buddy-card-name { font-weight: 800; font-size: 1.05rem; margin: 6px 0 0; }
+.buddy-card-epithet {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--color-primary-dark); margin: 2px 0 0;
+}
+.buddy-card-quote { font-style: italic; color: var(--color-text-muted); margin: 10px 0 0; font-size: 0.9rem; }
+.buddy-card-blurb { font-size: 13px; color: var(--color-text-muted); margin: 6px 0 12px; max-width: 42ch; }
+.buddy-card-select-btn {
+  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 999px;
+  padding: 8px 20px; font-weight: 700; font-size: 14px; font-family: inherit; cursor: pointer;
+  color: var(--color-text);
+}
+.buddy-card-select-btn:hover { border-color: var(--color-primary); color: var(--color-primary-dark); }
+.buddy-card-select-btn:disabled { opacity: 0.5; cursor: default; }
+.buddy-card-selected-tag { color: var(--color-primary-dark); font-size: 14px; font-weight: 700; }
+
 .pets-appearance-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-2); }
 
 .settings-row { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3); }
@@ -1350,6 +1379,43 @@ p { line-height: 1.75; margin: 0 0 var(--space-2) 0; color: var(--color-text); }
 .corner-shelf .placement-option-label {
   flex: 1;
   padding-top: 0.1rem;
+}
+
+/* Onboarding "pick your buddy" step — one box per character (sprite, name,
+   epithet, in-character quote, personality blurb), same dark/brass panel
+   language as the placement quiz above rather than the reference art's
+   bright per-character colors, so it still reads as part of this shop. */
+.corner-shelf .buddy-pick-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.7rem;
+  margin-top: 0.9rem;
+}
+.corner-shelf .buddy-pick-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.15rem;
+  padding: 0.9rem 0.6rem 0.8rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--shelf-panel-edge);
+  border-radius: 6px;
+  color: var(--shelf-ink);
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.corner-shelf .buddy-pick-card:hover { border-color: var(--shelf-brass); background: rgba(255, 255, 255, 0.09); }
+.corner-shelf .buddy-pick-name { font-weight: 700; font-size: 0.92rem; margin-top: 0.3rem; }
+.corner-shelf .buddy-pick-epithet {
+  font-size: 0.62rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase;
+  color: var(--shelf-brass);
+}
+.corner-shelf .buddy-pick-quote { font-style: italic; font-size: 0.74rem; color: var(--shelf-muted); margin-top: 0.4rem; }
+.corner-shelf .buddy-pick-blurb { font-size: 0.7rem; line-height: 1.4; color: var(--shelf-muted); margin-top: 0.3rem; }
+@media (max-width: 640px) {
+  .corner-shelf .buddy-pick-grid { grid-template-columns: 1fr; }
 }
 
 /* Book-page look for Task/Learn screens, reached by picking up a book in
