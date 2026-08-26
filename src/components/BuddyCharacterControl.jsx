@@ -53,7 +53,14 @@ export default function BuddyCharacterControl() {
                 <p className="buddy-card-epithet">{opt.epithet}</p>
               </div>
               <div className="buddy-card-body">
-                <PetBuddy character={opt.id} state="idle" position="inline" size={64} />
+                {/* Fixed-height slot: each idle animation frame is a separately
+                    cropped image with its own intrinsic aspect ratio, so
+                    PetBuddy's height:auto <img> changes height every frame
+                    tick. Uncontained, that reflows this card's whole height
+                    every ~0.5-0.8s, reading as the box itself bouncing. */}
+                <div className="buddy-card-sprite">
+                  <PetBuddy character={opt.id} state="idle" position="inline" size={64} />
+                </div>
                 <p className="buddy-card-quote">&ldquo;{opt.quote}&rdquo;</p>
                 <p className="buddy-card-blurb">{opt.blurb}</p>
                 {isSelected ? (

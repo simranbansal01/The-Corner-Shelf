@@ -879,6 +879,12 @@ p { line-height: 1.75; margin: 0 0 var(--space-2) 0; color: var(--color-text); }
   display: flex; flex-direction: column; align-items: center; text-align: center;
   padding: var(--space-3) var(--space-3) var(--space-2);
 }
+/* Fixed slot around PetBuddy: idle-animation frames are individually
+   cropped images with slightly different intrinsic heights, and PetBuddy's
+   <img> is height:auto, so its rendered height changes every frame tick.
+   Centering it in a fixed-height box (rather than depending on PetBuddy's
+   own auto height) keeps that from reflowing the card. */
+.buddy-card-sprite { height: 64px; display: flex; align-items: center; justify-content: center; }
 .buddy-card-quote { font-style: italic; color: var(--color-text-muted); margin: 10px 0 0; font-size: 0.9rem; }
 .buddy-card-blurb { font-size: 13px; color: var(--color-text-muted); margin: 6px 0 12px; max-width: 42ch; }
 .buddy-card-select-btn {
@@ -1422,6 +1428,10 @@ p { line-height: 1.75; margin: 0 0 var(--space-2) 0; color: var(--color-text); }
   display: flex; flex-direction: column; align-items: center; text-align: center;
   gap: 0.15rem; padding: 0.7rem 0.5rem 0.8rem;
 }
+/* See the matching .buddy-card-sprite comment in the Settings picker rules
+   above — keeps idle-animation frame height changes from reflowing this
+   card. */
+.corner-shelf .buddy-pick-sprite { height: 64px; display: flex; align-items: center; justify-content: center; }
 .corner-shelf .buddy-pick-quote { display: block; font-style: italic; font-size: 0.74rem; color: var(--shelf-muted); margin-top: 0.4rem; }
 .corner-shelf .buddy-pick-blurb { display: block; font-size: 0.7rem; line-height: 1.4; color: var(--shelf-muted); margin-top: 0.3rem; }
 @media (max-width: 640px) {

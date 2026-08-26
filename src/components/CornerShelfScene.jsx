@@ -238,7 +238,12 @@ export default function CornerShelfScene({
                   <span className="buddy-pick-epithet">{b.epithet}</span>
                 </div>
                 <div className="buddy-pick-body">
-                  <PetBuddy character={b.id} state="idle" position="inline" size={64} />
+                  {/* Fixed-height slot — see the matching comment in
+                      BuddyCharacterControl.jsx: without it, this card's
+                      height reflows on every idle-animation frame tick. */}
+                  <div className="buddy-pick-sprite">
+                    <PetBuddy character={b.id} state="idle" position="inline" size={64} />
+                  </div>
                   <span className="buddy-pick-quote">&ldquo;{b.quote}&rdquo;</span>
                   <span className="buddy-pick-blurb">{b.blurb}</span>
                 </div>
