@@ -39,6 +39,10 @@
      off this one serif stack, Lora over the plain system-Georgia fallback
      they used before adding a real webfont. */
   --font-serif: 'Lora', Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
+  /* Book-cover title treatment: bold, chunky, rounded — distinct from the
+     serif reading font, matching a punchy illustrated-book-cover look
+     rather than a classic library-book one. */
+  --font-display: 'Baloo 2', 'Nunito', system-ui, sans-serif;
 }
 
 /* Day — bright coastal daytime. Same values as the :root fallback above. */
@@ -1565,11 +1569,28 @@ p { line-height: 1.75; margin: 0 0 var(--space-2) 0; color: var(--color-text); }
 }
 
 .page-left-icon { font-size: 1.8rem; color: #a9714f; margin-bottom: 1.1rem; }
-.page-left-module { font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; color: #a9714f; margin-bottom: 0.9rem; }
-.page-left-title { font-size: 1.9rem; font-weight: 600; letter-spacing: 0; line-height: 1.25; color: #3a2a1c; margin: 0 0 1.1rem; text-wrap: balance; }
+.page-left-module {
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-size: 0.72rem; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase;
+  color: #a9714f; margin-bottom: 0.9rem;
+}
+/* Bold, chunky, rounded — an illustrated-book-cover title treatment
+   (think a craft/design-book cover) rather than the classic serif look
+   the rest of the reader's body copy uses. */
+.page-left-title {
+  font-family: var(--font-display);
+  font-size: 2rem; font-weight: 700; letter-spacing: 0; line-height: 1.15;
+  color: #3a2a1c; margin: 0 0 1.1rem; text-wrap: balance;
+}
 .page-left-rule { width: 64px; height: 2px; background: #cbb488; margin: 0.4rem 0 1.1rem; }
-.page-left-tagline { font-style: italic; font-size: 0.86rem; color: #7a6248; max-width: 32ch; }
-.page-left-series { font-size: 0.8rem; color: #9c8464; margin-top: 0.6rem; }
+.page-left-tagline {
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-size: 0.86rem; color: #7a6248; max-width: 32ch;
+}
+.page-left-series {
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-size: 0.8rem; font-weight: 700; color: #9c8464; margin-top: 0.6rem;
+}
 
 .page-right { background: #fdfaf1; }
 
@@ -1592,19 +1613,21 @@ p { line-height: 1.75; margin: 0 0 var(--space-2) 0; color: var(--color-text); }
    rather than just snapping to the next page's text. */
 .page-turn-next, .page-turn-prev {
   transform-origin: left center;
-  animation-duration: 0.36s;
+  animation-duration: 0.5s;
   animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1);
   animation-fill-mode: both;
 }
 .page-turn-next { animation-name: page-turn-in-next; }
 .page-turn-prev { animation-name: page-turn-in-prev; }
 @keyframes page-turn-in-next {
-  from { opacity: 0; transform: translateX(22px) rotateY(-10deg); }
-  to { opacity: 1; transform: translateX(0) rotateY(0deg); }
+  0% { opacity: 0.1; transform: translateX(60px) rotateY(-42deg); }
+  60% { opacity: 1; }
+  100% { opacity: 1; transform: translateX(0) rotateY(0deg); }
 }
 @keyframes page-turn-in-prev {
-  from { opacity: 0; transform: translateX(-22px) rotateY(10deg); }
-  to { opacity: 1; transform: translateX(0) rotateY(0deg); }
+  0% { opacity: 0.1; transform: translateX(-60px) rotateY(42deg); }
+  60% { opacity: 1; }
+  100% { opacity: 1; transform: translateX(0) rotateY(0deg); }
 }
 #reader-page-content h2, #reader-page-content h3 {
   margin: 0 0 0.9rem; color: #3a2a1c; text-wrap: balance;
