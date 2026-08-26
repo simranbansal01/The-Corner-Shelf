@@ -1657,6 +1657,7 @@ p { line-height: 1.75; margin: 0 0 var(--space-2) 0; color: var(--color-text); }
   animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1);
   animation-fill-mode: both;
 }
+
 .page-turn-next { animation-name: page-turn-in-next; }
 .page-turn-prev { animation-name: page-turn-in-prev; }
 @keyframes page-turn-in-next {
@@ -1668,6 +1669,39 @@ p { line-height: 1.75; margin: 0 0 var(--space-2) 0; color: var(--color-text); }
   0% { opacity: 0.1; transform: translateX(-60px) rotateY(42deg); }
   60% { opacity: 1; }
   100% { opacity: 1; transform: translateX(0) rotateY(0deg); }
+}
+
+/* Phone: single page instead of the two-page spread — the left "cover"
+   card (title/eyebrow/page-num) collapses into a compact header above
+   the now full-width content page, rather than sitting side-by-side with
+   it at an unreadably narrow width. The page-turn animation above needs
+   no changes for this: it's the same #reader-page-content element, just
+   full-bleed now instead of the right half of a spread. */
+@media (max-width: 640px) {
+  .book-pages { flex-direction: column; }
+  .book-pages::before { display: none; }
+  .book-reader-page { width: 100%; height: auto; padding: 1.1rem 1.2rem; }
+  .page-left {
+    flex: none;
+    align-items: flex-start;
+    text-align: left;
+    padding-bottom: 0.9rem;
+    border-right: none;
+    border-bottom: 1px solid rgba(60, 42, 20, 0.08);
+  }
+  .page-left-icon, .page-left-rule, .page-left-series { display: none; }
+  .page-left-module { margin-bottom: 0.3rem; }
+  .page-left-title { font-size: 1.25rem; margin-bottom: 0.2rem; }
+  .page-left-tagline { max-width: none; }
+  .page-num { margin-top: 0.3rem; }
+  .page-right { flex: 1; min-height: 0; }
+  .page-controls { top: 0.7rem; right: 1rem; }
+  #reader-page-content { margin-top: 0.6rem; }
+  /* The desktop spread floats these just outside the book's edges; at
+     94vw wide on a phone there's no room for that, so they'd get clipped
+     by the viewport. */
+  #reader-prev { left: 0.4rem; }
+  #reader-next { right: 0.4rem; }
 }
 #reader-page-content h2, #reader-page-content h3 {
   margin: 0 0 0.9rem; color: #3a2a1c; text-wrap: balance;
