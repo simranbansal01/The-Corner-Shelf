@@ -854,6 +854,42 @@ p { line-height: 1.75; margin: 0 0 var(--space-2) 0; color: var(--color-text); }
   padding: 8px 4px;
 }
 
+/* Buddy character picker (Settings) — one box per character: a colored
+   header band (that character's own accent, set via the inline
+   --buddy-accent custom property) with name + epithet, then a body with
+   sprite, in-character quote, and personality blurb. Single column, since
+   this modal is a fixed ~560px width (see .shop-panel-card), not enough
+   room for a 3-up grid without cramping the copy. */
+.buddy-card-grid { display: flex; flex-direction: column; gap: var(--space-3); margin: var(--space-2) 0; }
+.buddy-card {
+  display: flex; flex-direction: column;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  overflow: hidden;
+}
+.buddy-card-selected { box-shadow: 0 0 0 2px var(--buddy-accent); }
+.buddy-card-header { background: var(--buddy-accent); padding: 10px 14px; text-align: center; }
+.buddy-card-name { color: #fff; font-weight: 800; font-size: 1.05rem; margin: 0; }
+.buddy-card-epithet {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.85); margin: 2px 0 0;
+}
+.buddy-card-body {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  padding: var(--space-3) var(--space-3) var(--space-2);
+}
+.buddy-card-quote { font-style: italic; color: var(--color-text-muted); margin: 10px 0 0; font-size: 0.9rem; }
+.buddy-card-blurb { font-size: 13px; color: var(--color-text-muted); margin: 6px 0 12px; max-width: 42ch; }
+.buddy-card-select-btn {
+  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 999px;
+  padding: 8px 20px; font-weight: 700; font-size: 14px; font-family: inherit; cursor: pointer;
+  color: var(--color-text);
+}
+.buddy-card-select-btn:hover { border-color: var(--buddy-accent); color: var(--buddy-accent); }
+.buddy-card-select-btn:disabled { opacity: 0.5; cursor: default; }
+.buddy-card-selected-tag { color: var(--buddy-accent); font-size: 14px; font-weight: 700; }
+
 .pets-appearance-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-2); }
 
 .settings-row { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3); }
@@ -1352,6 +1388,46 @@ p { line-height: 1.75; margin: 0 0 var(--space-2) 0; color: var(--color-text); }
   padding-top: 0.1rem;
 }
 
+/* Onboarding "pick your buddy" step — one box per character: a colored
+   header band (that character's own accent, via the inline --buddy-accent
+   custom property) with name + epithet, then a dark card body (matching
+   the rest of this shop's panels) with sprite, quote, and blurb. */
+.corner-shelf .buddy-pick-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.7rem;
+  margin-top: 0.9rem;
+}
+.corner-shelf .buddy-pick-card {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--shelf-panel-edge);
+  border-radius: 6px;
+  overflow: hidden;
+  color: var(--shelf-ink);
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.corner-shelf .buddy-pick-card:hover { border-color: var(--buddy-accent); box-shadow: 0 0 0 1px var(--buddy-accent); }
+.corner-shelf .buddy-pick-header { background: var(--buddy-accent); padding: 0.5rem 0.5rem 0.4rem; }
+.corner-shelf .buddy-pick-name { display: block; color: #fff; font-weight: 700; font-size: 0.86rem; }
+.corner-shelf .buddy-pick-epithet {
+  display: block; font-size: 0.6rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.85); margin-top: 0.1rem;
+}
+.corner-shelf .buddy-pick-body {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: 0.15rem; padding: 0.7rem 0.5rem 0.8rem;
+}
+.corner-shelf .buddy-pick-quote { display: block; font-style: italic; font-size: 0.74rem; color: var(--shelf-muted); margin-top: 0.4rem; }
+.corner-shelf .buddy-pick-blurb { display: block; font-size: 0.7rem; line-height: 1.4; color: var(--shelf-muted); margin-top: 0.3rem; }
+@media (max-width: 640px) {
+  .corner-shelf .buddy-pick-grid { grid-template-columns: 1fr; }
+}
+
 /* Book-page look for Task/Learn screens, reached by picking up a book in
    the Corner Shelf scene. Task.jsx/Learn.jsx style themselves entirely
    through the --color-* custom properties (day/night theme), so pinning
@@ -1566,6 +1642,18 @@ p { line-height: 1.75; margin: 0 0 var(--space-2) 0; color: var(--color-text); }
 .chapter-score { font-size: 2.2rem; font-weight: 700; color: #4c8067; margin: 0.6rem 0 0.3rem; }
 .chapter-score-low { color: #a9714f; }
 .chapter-score-caption { font-size: 0.9rem; color: #7a6248; margin: 0 0 1.2rem; }
+
+/* Chapter feedback prompt, shown alongside the scorecard once every
+   question in the chapter is answered. */
+.chapter-feedback { margin-top: 1.4rem; padding-top: 1.2rem; border-top: 1px solid #e6dcc4; }
+.chapter-feedback-label { margin: 0 0 0.5rem; font-size: 0.86rem; font-weight: 600; color: #3a2a1c; }
+.chapter-feedback-stars { display: flex; gap: 0.3rem; margin-bottom: 0.7rem; }
+.chapter-feedback-star {
+  background: none; border: none; padding: 0; cursor: pointer;
+  font-size: 1.5rem; line-height: 1; color: #d8cba8;
+}
+.chapter-feedback-star.is-filled { color: #c99a3f; }
+.chapter-feedback-star:hover { color: #c99a3f; }
 
 /* Case study (closing page) */
 .case-study-prompt { margin: 0 0 1rem; font-size: 0.96rem; line-height: 1.65; color: #3a2a1c; }

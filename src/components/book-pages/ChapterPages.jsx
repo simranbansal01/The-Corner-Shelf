@@ -1,7 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
-import { logEvent } from '../../lib/events'
+import { logEvent, logError } from '../../lib/events'
 import { usePetBuddy } from '../../context/PetBuddyContext'
+import { useAuth } from '../../context/AuthContext'
+import { supabase } from '../../lib/supabase'
 import Button from '../Button'
+
+// Chapter quiz question ids follow `${stageId}_c${chapterNumber}_q${n}` (see
+// learnContent.js), so the id prefix without the trailing `_qN` is already a
+// stable per-chapter key, no separate id field needed on the chapter object
+// itself. Falls back to the title for the (currently nonexistent) case of a
+// chapter with no quiz at all.
+function chapterKeyFor(chapter) {
+  return chapter.quiz[0]?.id.replace(/_q\d+$/, '') || chapter.title
+}
 
 // The table-of-contents page a Tier 1 book opens on: one entry per chapter
 // plus the closing case-study ("Final Task"), each jumping straight to
@@ -156,25 +167,63 @@ export function ChapterQuizPage({ question, onAnswered }) {
 // ChapterQuizPage's onAnswered as the reader goes), a caption depending on
 // how they did, and a retake button that clears this chapter's answers and
 // jumps back to its first quiz question, matching the artifact's own
-// scorecard page.
-export function ChapterScorePage({ chapter, quizAnswers, onRetake }) {
+// scorecard page. Once every question is answered, also asks for a quick
+// rating and optional "what should be improved" note (quiz_feedback table) —
+// BookReader remounts this component per chapter (key={chapterNumber}), so
+// celebratedFor/feedbackSubmitted both start fresh for each new chapter
+// without needing a manual reset effect.
+export function ChapterScorePage({ stageId, chapter, quizAnswers, onRetake }) {
+  const { user } = useAuth()
   const { triggerSuccess } = usePetBuddy()
   const celebratedFor = useRef(null)
   const questionIds = chapter.quiz.map((q) => q.id)
   const allAnswered = questionIds.every((id) => quizAnswers[id] !== undefined)
   const correctCount = questionIds.filter((id) => quizAnswers[id]).length
   const total = questionIds.length
+  const chapterKey = chapterKeyFor(chapter)
+
+  const [rating, setRating] = useState(null)
+  const [improveText, setImproveText] = useState('')
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false)
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false)
 
   // Fires once per chapter the first time its score page is reached fully
-  // answered — guarded by chapter.id so revisiting an already-completed
+  // answered — guarded by chapterKey so revisiting an already-completed
   // chapter (or re-rendering mid-session) doesn't replay the celebration.
   useEffect(() => {
-    if (allAnswered && celebratedFor.current !== chapter.id) {
-      celebratedFor.current = chapter.id
+    if (allAnswered && celebratedFor.current !== chapterKey) {
+      celebratedFor.current = chapterKey
       triggerSuccess('Chapter complete! Great work getting through that.')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allAnswered, chapter.id])
+  }, [allAnswered, chapterKey])
+
+  async function submitFeedback() {
+    if (!rating || feedbackSubmitting) return
+    setFeedbackSubmitting(true)
+    try {
+      const { error } = await supabase.from('quiz_feedback').insert({
+        user_id: user.id,
+        stage_id: stageId,
+        chapter_key: chapterKey,
+        rating,
+        improve_text: improveText.trim() || null,
+      })
+      if (error) throw error
+      logEvent('chapter_quiz_feedback_submitted', {
+        stage_id: stageId,
+        chapter_key: chapterKey,
+        rating,
+        has_improve_text: improveText.trim().length > 0,
+      })
+      setFeedbackSubmitted(true)
+    } catch (err) {
+      logError('quiz_feedback_submit_failed', err.message, 'submitFeedback')
+      alert('Something went wrong submitting your feedback. Please try again.')
+    } finally {
+      setFeedbackSubmitting(false)
+    }
+  }
 
   const caption = !allAnswered
     ? 'Answer all the questions in this chapter to see your score.'
@@ -190,6 +239,43 @@ export function ChapterScorePage({ chapter, quizAnswers, onRetake }) {
       </div>
       <p className="chapter-score-caption">{caption}</p>
       <Button variant="secondary" onClick={onRetake}>Retake Quiz</Button>
+
+      {allAnswered && (
+        <div className="chapter-feedback">
+          {feedbackSubmitted ? (
+            <p className="reader-buddy-response">✓ Thanks — that helps us improve this chapter.</p>
+          ) : (
+            <>
+              <p className="chapter-feedback-label">How was this chapter's quiz?</p>
+              <div className="chapter-feedback-stars" role="radiogroup" aria-label="Rate this chapter's quiz">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    className={`chapter-feedback-star${rating >= n ? ' is-filled' : ''}`}
+                    aria-label={`${n} star${n > 1 ? 's' : ''}`}
+                    aria-pressed={rating === n}
+                    onClick={() => setRating(n)}
+                  >
+                    ★
+                  </button>
+                ))}
+              </div>
+              <textarea
+                className="judgment-textarea"
+                rows={2}
+                maxLength={500}
+                placeholder="Anything you'd want improved? (optional)"
+                value={improveText}
+                onChange={(e) => setImproveText(e.target.value)}
+              />
+              <Button disabled={!rating || feedbackSubmitting} onClick={submitFeedback}>
+                {feedbackSubmitting ? 'Sending…' : 'Send feedback'}
+              </Button>
+            </>
+          )}
+        </div>
+      )}
     </>
   )
 }
