@@ -59,7 +59,17 @@ const PITCH_MAX = -0.15;
 const DOOR_HALF_WIDTH = 0.62;
 const OUTSIDE_WIDTH = 8.4;
 const OUTSIDE_DEPTH = 4.6;
-const BOOK_NEAR_DIST = 1.7;
+const BOOK_NEAR_DIST = 2.6;
+// The owner's desk's footprint (buildOwnerDesk reads these same constants
+// for the actual geometry, so the collision box below can't drift out of
+// sync with it) — the one hard, eye-height obstacle in the main walkable
+// area a player can walk straight through without this, WASD or joystick.
+const DESK_X = 0, DESK_Z = -0.15;
+const DESK_LONG = 1.35, DESK_SHORT = 0.62;
+// How far from the desk's actual edge the player's collision stops —
+// roughly a shoulder-width buffer, not just a hard stop exactly at the
+// wood.
+const PLAYER_RADIUS = 0.3;
 const BOOK_POP_DIST = 0.42;
 
 let scene, camera, renderer, clock;
@@ -2038,8 +2048,8 @@ function buildCozyNook() {
 }
 
 function buildOwnerDesk() {
-  const deskX = 0, deskZ = -0.15;
-  const deskLong = 1.35, deskShort = 0.62, topThick = 0.05, legH = 0.6;
+  const deskX = DESK_X, deskZ = DESK_Z;
+  const deskLong = DESK_LONG, deskShort = DESK_SHORT, topThick = 0.05, legH = 0.6;
   const woodMat = toonMat(PALETTE.woodDark);
 
   const top = new THREE.Mesh(new THREE.BoxGeometry(deskLong, topThick, deskShort), toonMat(PALETTE.wood));
@@ -2568,6 +2578,7 @@ function setupControls() {
     if (hits.length) {
       camera.position.x = hits[0].point.x;
       camera.position.z = hits[0].point.z;
+      resolveDeskCollision();
     }
   }
 
@@ -2695,6 +2706,8 @@ function updateMovement(dt) {
     stepTimer = 0;
   }
 
+  resolveDeskCollision();
+
   const doorZ = ROOM.depth / 2;
   const inside = camera.position.z <= doorZ;
   const xLim = inside ? ROOM.width / 2 - MARGIN : OUTSIDE_WIDTH / 2 - MARGIN;
@@ -2704,6 +2717,33 @@ function updateMovement(dt) {
   camera.position.x = Math.max(-xLim, Math.min(xLim, camera.position.x));
   camera.position.z = Math.max(zMin, Math.min(zMax, camera.position.z));
   camera.position.y = EYE_HEIGHT;
+}
+
+// Called after every position change — WASD/joystick movement above, and
+// tryWalkTo's tap-to-walk teleport — so the player can't end up inside the
+// desk regardless of which input drove them there. Simple AABB push-out:
+// if the camera lands inside the desk's (margin-expanded) footprint, shove
+// it back out along whichever axis has the smaller penetration, so it
+// slides along whichever edge it approached rather than snapping to a
+// corner.
+function resolveDeskCollision() {
+  const minX = DESK_X - DESK_LONG / 2 - PLAYER_RADIUS;
+  const maxX = DESK_X + DESK_LONG / 2 + PLAYER_RADIUS;
+  const minZ = DESK_Z - DESK_SHORT / 2 - PLAYER_RADIUS;
+  const maxZ = DESK_Z + DESK_SHORT / 2 + PLAYER_RADIUS;
+  const { x, z } = camera.position;
+  if (x <= minX || x >= maxX || z <= minZ || z >= maxZ) return;
+
+  const pushLeft = x - minX;
+  const pushRight = maxX - x;
+  const pushUp = z - minZ;
+  const pushDown = maxZ - z;
+  const smallest = Math.min(pushLeft, pushRight, pushUp, pushDown);
+
+  if (smallest === pushLeft) camera.position.x = minX;
+  else if (smallest === pushRight) camera.position.x = maxX;
+  else if (smallest === pushUp) camera.position.z = minZ;
+  else camera.position.z = maxZ;
 }
 
 function updateLessonBooks(dt) {
