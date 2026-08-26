@@ -1125,6 +1125,14 @@ p { line-height: 1.75; margin: 0 0 var(--space-2) 0; color: var(--color-text); }
 }
 .corner-shelf #hud.faded { opacity: 0; }
 .corner-shelf #hud strong { color: var(--shelf-ink); }
+/* Shifted up out of the mobile joystick's way (same bottom-left corner)
+   on touch devices — this hint also auto-fades a few seconds after first
+   move (see hud.classList.add('faded') in cornerShelfScene.js), but the
+   joystick appears immediately on entering, so the two would overlap for
+   those first few seconds without this. */
+@media (pointer: coarse) {
+  .corner-shelf #hud { bottom: 7.3rem; }
+}
 
 /* Top-right game-HUD menu: a single toggle button, collapsed by default;
    Ledger/Noticeboard/Profile/Settings/Sound only show once it's expanded. */
@@ -1159,6 +1167,38 @@ p { line-height: 1.75; margin: 0 0 var(--space-2) 0; color: var(--color-text); }
   white-space: nowrap;
 }
 .corner-shelf .hud-toggle-btn:hover { border-color: rgba(255, 255, 255, 0.3); }
+
+/* Mobile movement joystick — touch's stand-in for WASD (see setupControls/
+   updateMovement in cornerShelfScene.js). Hidden by default; the scene
+   script toggles 'visible' every frame once exploring is unlocked, on
+   touch devices only, same gating book-hint/tour-arrow already use.
+   touch-action: none keeps the browser from treating drags here as a
+   page-scroll gesture. */
+.corner-shelf .mobile-joystick {
+  position: fixed;
+  left: 1.4rem;
+  bottom: 1.4rem;
+  z-index: 8;
+  width: 5.5rem;
+  height: 5.5rem;
+  border-radius: 50%;
+  background: rgba(21, 16, 11, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(4px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+}
+.corner-shelf .mobile-joystick.visible { display: flex; }
+.corner-shelf .mobile-joystick-stick {
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  transition: transform 0.05s linear;
+}
 
 .corner-shelf .book-hint {
   position: fixed;
