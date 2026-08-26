@@ -34,6 +34,11 @@
 
   --radius: 20px;
   --radius-sm: 12px;
+
+  /* Book-flavored surfaces (shop sign, book reader, quizzes/notes) all read
+     off this one serif stack, Lora over the plain system-Georgia fallback
+     they used before adding a real webfont. */
+  --font-serif: 'Lora', Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
 }
 
 /* Day — bright coastal daytime. Same values as the :root fallback above. */
@@ -979,9 +984,10 @@ p { line-height: 1.75; margin: 0 0 var(--space-2) 0; color: var(--color-text); }
   margin: 0 0 0.9rem;
 }
 .corner-shelf h1 {
-  font-family: Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
+  font-family: var(--font-serif);
   font-size: 2.1rem;
   font-weight: 600;
+  letter-spacing: 0;
   line-height: 1.15;
   margin: 0 0 0.7rem;
   color: var(--shelf-ink);
@@ -1330,10 +1336,10 @@ p { line-height: 1.75; margin: 0 0 var(--space-2) 0; color: var(--color-text); }
   border-radius: 4px;
   padding: var(--space-4, 28px);
   box-shadow: 0 18px 40px rgba(60, 40, 20, 0.12);
-  font-family: Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
+  font-family: var(--font-serif);
   color: var(--color-text);
 }
-.book-card h1, .book-card h2, .book-card h3 { font-family: inherit; }
+.book-card h1, .book-card h2, .book-card h3 { font-family: inherit; font-weight: 600; letter-spacing: 0; }
 .book-card .verdict-correct { border: 1px solid #bcd9bb; }
 .book-card .verdict-incorrect { border: 1px solid #e3bcb1; }
 
@@ -1417,7 +1423,7 @@ p { line-height: 1.75; margin: 0 0 var(--space-2) 0; color: var(--color-text); }
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-  font-family: Georgia, "Iowan Old Style", serif;
+  font-family: var(--font-serif);
   color: #2e2013;
 }
 
@@ -1431,7 +1437,7 @@ p { line-height: 1.75; margin: 0 0 var(--space-2) 0; color: var(--color-text); }
 
 .page-left-icon { font-size: 1.8rem; color: #a9714f; margin-bottom: 1.1rem; }
 .page-left-module { font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; color: #a9714f; margin-bottom: 0.9rem; }
-.page-left-title { font-size: 1.9rem; line-height: 1.25; color: #3a2a1c; margin: 0 0 1.1rem; text-wrap: balance; }
+.page-left-title { font-size: 1.9rem; font-weight: 600; letter-spacing: 0; line-height: 1.25; color: #3a2a1c; margin: 0 0 1.1rem; text-wrap: balance; }
 .page-left-rule { width: 64px; height: 2px; background: #cbb488; margin: 0.4rem 0 1.1rem; }
 .page-left-tagline { font-style: italic; font-size: 0.86rem; color: #7a6248; max-width: 32ch; }
 .page-left-series { font-size: 0.8rem; color: #9c8464; margin-top: 0.6rem; }
@@ -1441,14 +1447,40 @@ p { line-height: 1.75; margin: 0 0 var(--space-2) 0; color: var(--color-text); }
 .page-controls { position: absolute; top: 1rem; right: 1.5rem; display: flex; gap: 1.1rem; z-index: 4; }
 .page-link-btn {
   border: none; background: none; padding: 0;
-  font-family: Georgia, "Iowan Old Style", serif;
+  font-family: var(--font-serif);
   font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase;
   color: #a9714f; cursor: pointer;
 }
 .page-link-btn:hover { color: #5c3d24; }
 
 #reader-page-content { margin-top: 2.6rem; flex: 1; overflow-y: auto; padding-right: 0.2rem; }
-#reader-page-content h2, #reader-page-content h3 { margin: 0 0 0.9rem; color: #3a2a1c; text-wrap: balance; }
+
+/* Page-turn: each Prev/Next remounts #reader-page-content under a fresh key
+   (see OpenBookShell), so this animation replays every turn without any
+   manual class add/remove. Hinges from the left (the book's spine, same
+   transform-origin the cover flap uses) inside .open-book's existing
+   perspective, tilting/settling in from the direction it "turned" from
+   rather than just snapping to the next page's text. */
+.page-turn-next, .page-turn-prev {
+  transform-origin: left center;
+  animation-duration: 0.36s;
+  animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1);
+  animation-fill-mode: both;
+}
+.page-turn-next { animation-name: page-turn-in-next; }
+.page-turn-prev { animation-name: page-turn-in-prev; }
+@keyframes page-turn-in-next {
+  from { opacity: 0; transform: translateX(22px) rotateY(-10deg); }
+  to { opacity: 1; transform: translateX(0) rotateY(0deg); }
+}
+@keyframes page-turn-in-prev {
+  from { opacity: 0; transform: translateX(-22px) rotateY(10deg); }
+  to { opacity: 1; transform: translateX(0) rotateY(0deg); }
+}
+#reader-page-content h2, #reader-page-content h3 {
+  margin: 0 0 0.9rem; color: #3a2a1c; text-wrap: balance;
+  font-weight: 600; letter-spacing: 0;
+}
 
 .reader-explanation {
   margin-top: 1rem; padding: 0.85rem 1rem; border-radius: 8px;
@@ -1474,7 +1506,7 @@ p { line-height: 1.75; margin: 0 0 var(--space-2) 0; color: var(--color-text); }
   display: flex; align-items: center; gap: 0.75rem;
   width: 100%; text-align: left; padding: 0.85rem 1rem; border-radius: 10px;
   border: 1px solid rgba(203, 180, 136, 0.5); background: #fffaf0;
-  cursor: pointer; font-family: Georgia, "Iowan Old Style", serif;
+  cursor: pointer; font-family: var(--font-serif);
   transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 .toc-tile:hover { border-color: #a9714f; transform: translateY(-2px); box-shadow: 0 6px 16px rgba(120, 90, 50, 0.15); }
@@ -1507,7 +1539,7 @@ p { line-height: 1.75; margin: 0 0 var(--space-2) 0; color: var(--color-text); }
 .chapter-quiz-option {
   text-align: left; padding: 0.65rem 0.85rem; border-radius: 5px;
   border: 1.5px solid #cbb488; background: #fffdf7; color: #3a2a1c;
-  font-family: Georgia, "Iowan Old Style", serif; font-size: 0.9rem; cursor: pointer;
+  font-family: var(--font-serif); font-size: 0.9rem; cursor: pointer;
 }
 .chapter-quiz-option:hover:not(:disabled) { border-color: #a9714f; }
 .chapter-quiz-option:disabled { cursor: default; }
@@ -1601,7 +1633,7 @@ p { line-height: 1.75; margin: 0 0 var(--space-2) 0; color: var(--color-text); }
   border-radius: 8px;
   padding: 1.8rem 2rem;
   box-shadow: 0 40px 90px rgba(0, 0, 0, 0.55), 0 0 0 1px #d8c299;
-  font-family: Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
+  font-family: var(--font-serif);
   color: var(--color-text);
 }
 .shop-panel-header {

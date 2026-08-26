@@ -32,6 +32,19 @@ export default function OpenBookShell({
   const [showScrollHint, setShowScrollHint] = useState(false)
   const contentRef = useRef(null)
 
+  // Which way the page should turn, derived from contentKey moving up or
+  // down (both callers pass a numeric page index) — React's documented
+  // "adjust state during render" pattern rather than a ref read during
+  // render. Stays null across the very first render (prevContentKey starts
+  // equal to contentKey), so the very first page doesn't animate on top of
+  // the cover-opening animation.
+  const [prevContentKey, setPrevContentKey] = useState(contentKey)
+  const [turnDirection, setTurnDirection] = useState(null)
+  if (contentKey !== prevContentKey) {
+    setTurnDirection(contentKey > prevContentKey ? 'next' : 'prev')
+    setPrevContentKey(contentKey)
+  }
+
   // Double rAF so the browser paints the closed cover first, then the CSS
   // transition on .book-cover-flap actually animates instead of snapping,
   // same trick the artifact's openReader() used.
@@ -103,7 +116,12 @@ export default function OpenBookShell({
               )}
               <button type="button" className="page-link-btn" onClick={onClose}>Close book</button>
             </div>
-            <div id="reader-page-content" ref={contentRef}>
+            <div
+              key={contentKey}
+              id="reader-page-content"
+              ref={contentRef}
+              className={turnDirection ? `page-turn-${turnDirection}` : ''}
+            >
               {children}
             </div>
             {showScrollHint && <div className="reader-scroll-hint">↓ Scroll for more</div>}
