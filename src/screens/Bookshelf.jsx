@@ -114,6 +114,8 @@ export default function Bookshelf() {
   // so the tier/path-message beat has a moment on screen before exploring.
   const [phase, setPhase] = useState(() => (profile?.tier ? 'done' : 'pet'))
   const [buddyCharacter, setBuddyCharacter] = useState(null)
+  const [displayName, setDisplayName] = useState('')
+  const [jobRoleLabel, setJobRoleLabel] = useState('')
   const [why, setWhy] = useState('')
   const [goal, setGoal] = useState(null)
   const [goalOther, setGoalOther] = useState('')
@@ -232,7 +234,10 @@ export default function Bookshelf() {
     setDashboardPage(null)
   }
 
-  // Same fields, same table as the old Onboarding.jsx finish() — pet_choice
+  // Same fields/table as the old Onboarding.jsx finish(), plus display_name/
+  // job_role_label (collected by the new 'name'/'jobRole' phases below) —
+  // same two columns ProfilePanel.jsx's Settings form reads/writes, so
+  // whatever's entered here shows up there too, editable later. pet_choice
   // is deliberately not written here anymore: this step now picks the real
   // corner buddy (buddy_character), not the older companion-corner figurine.
   // pet_choice keeps its own DB default ('sprout') until changed in Settings.
@@ -242,6 +247,8 @@ export default function Bookshelf() {
       const { error } = await supabase
         .from('users')
         .update({
+          display_name: displayName,
+          job_role_label: jobRoleLabel,
           onboarding_why: why,
           onboarding_goal: goal,
           onboarding_goal_other: goal === 'other' ? goalOther : null,
@@ -325,7 +332,7 @@ export default function Bookshelf() {
     if (phase === 'pet') {
       logEvent('onboarding_question_answered', { question_id: 'buddy_character', answer_value: value })
       setBuddyCharacter(value)
-      setPhase('why')
+      setPhase('name')
     } else if (phase === 'goal') {
       logEvent('onboarding_question_answered', { question_id: 'goal', answer_value: value })
       setGoal(value)
@@ -338,9 +345,19 @@ export default function Bookshelf() {
     }
   }
 
-  // The one free-text step (why / goal="other") and its DOM textarea.
+  // Every free-text step (name / jobRole / why / goal="other") shares the
+  // same DOM textarea in CornerShelfScene.jsx — one value in flight at a
+  // time, routed here by phase.
   function handleOnboardingTextSubmit(text) {
-    if (phase === 'why') {
+    if (phase === 'name') {
+      logEvent('onboarding_question_answered', { question_id: 'display_name', answer_value: text })
+      setDisplayName(text)
+      setPhase('jobRole')
+    } else if (phase === 'jobRole') {
+      logEvent('onboarding_question_answered', { question_id: 'job_role_label', answer_value: text })
+      setJobRoleLabel(text)
+      setPhase('why')
+    } else if (phase === 'why') {
       logEvent('onboarding_question_answered', { question_id: 'why', answer_value: text })
       setWhy(text)
       setPhase('goal')
@@ -371,11 +388,29 @@ export default function Bookshelf() {
         dialogue: "Welcome to The Corner Shelf! Before we start, pick your buddy — they'll follow you around and react as you go. (You can always switch later in Settings.)",
       }
     }
+    if (phase === 'name') {
+      return {
+        active: true,
+        phase: 'name',
+        dialogue: "Good pick. What should I call you?",
+        showTextInput: true,
+        textInputPlaceholder: 'Your name',
+      }
+    }
+    if (phase === 'jobRole') {
+      return {
+        active: true,
+        phase: 'jobRole',
+        dialogue: `Nice to meet you, ${displayName}! What do you do?`,
+        showTextInput: true,
+        textInputPlaceholder: 'e.g. Product Manager, Student, Designer',
+      }
+    }
     if (phase === 'why') {
       return {
         active: true,
         phase: 'why',
-        dialogue: 'Good pick. So, why are you here?',
+        dialogue: 'Good to know. So, why are you here?',
         showTextInput: true,
         textInputPlaceholder: 'A sentence or two is plenty',
       }
@@ -416,7 +451,7 @@ export default function Bookshelf() {
     }
     return null
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, goal, placementIndex, revealTier, profile?.path_message])
+  }, [phase, goal, placementIndex, revealTier, profile?.path_message, displayName])
 
   // Step-by-step "Show me around" walk, written for someone who's never
   // played a walking-around game before: first *how to move at all* and
